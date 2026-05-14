@@ -118,6 +118,16 @@ where not exists (
 );
 
 -- ----------------------------------------------------------------
+-- sample fraud flag (un-linked example for admin queue UX)
+-- ----------------------------------------------------------------
+insert into public.fraud_flags (user_id, entry_id, reason, severity, status, metadata)
+select null, null, 'sample: device_hash shared across multiple accounts in 24h', 'medium', 'open',
+       jsonb_build_object('demo', true, 'count', 5)
+where not exists (
+  select 1 from public.fraud_flags where reason like 'sample:%'
+);
+
+-- ----------------------------------------------------------------
 -- sample completed draw (for archive)
 -- ----------------------------------------------------------------
 insert into public.draws

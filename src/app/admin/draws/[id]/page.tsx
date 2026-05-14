@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminDrawActions } from "@/components/admin/admin-draw-actions";
+import { DrawEditForm } from "@/components/admin/draw-edit-form";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDateTime, maskEntryId } from "@/lib/utils";
 import type { Draw, Entry, WinnerClaim } from "@/lib/types";
@@ -76,6 +77,8 @@ export default async function AdminDrawDetailPage({ params }: PageProps) {
       </Card>
 
       <AdminDrawActions draw={draw} hasEntries={(entryCount ?? 0) > 0} hasClaim={!!claim} />
+
+      {draw.status === "draft" && <DrawEditForm draw={draw} />}
 
       <Card>
         <CardHeader><CardTitle>Latest entries</CardTitle></CardHeader>

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrandMark } from "@/components/brand-mark";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { APP_URL } from "@/lib/constants";
+import { APP_NAME, APP_URL } from "@/lib/constants";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -32,19 +33,26 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="container max-w-sm py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reset password</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {done ? (
-            <p className="text-sm">
-              If an account exists for that email, we&apos;ve sent a reset link.
+    <div className="container flex max-w-sm flex-col items-center py-20">
+      <Link href="/" className="flex items-center gap-2">
+        <BrandMark />
+        <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
+      </Link>
+      <Card className="mt-6 w-full">
+        <CardContent className="space-y-5 p-6">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Reset your password</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We&apos;ll email you a secure link to set a new one.
             </p>
+          </div>
+          {done ? (
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
+              If an account exists for that email, the reset link is on its way.
+            </div>
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -59,11 +67,13 @@ export default function ForgotPasswordPage() {
               <Button type="submit" disabled={submitting} className="w-full">
                 {submitting ? "Sending…" : "Send reset link"}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                <Link href="/login" className="hover:text-foreground">Back to log in</Link>
-              </p>
             </form>
           )}
+          <p className="text-center text-xs text-muted-foreground">
+            <Link href="/login" className="hover:text-foreground">
+              Back to log in
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

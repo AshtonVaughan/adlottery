@@ -11,8 +11,8 @@ const tabs = [
   { href: "/admin/claims", label: "Winner claims" },
   { href: "/admin/jurisdictions", label: "Jurisdictions" },
   { href: "/admin/sponsors", label: "Sponsors" },
-  { href: "/admin/fraud", label: "Fraud flags" },
-  { href: "/admin/audit", label: "Audit logs" },
+  { href: "/admin/fraud", label: "Fraud" },
+  { href: "/admin/audit", label: "Audit log" },
 ];
 
 export default async function AdminLayout({
@@ -22,27 +22,35 @@ export default async function AdminLayout({
 }) {
   await requireAdmin();
   return (
-    <div className="container space-y-4 py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Admin console</h1>
+    <div className="container max-w-7xl py-8">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] pb-5">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Admin
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            Operator console
+          </h1>
+        </div>
         <p className="text-xs text-muted-foreground">
-          Privileged actions are recorded in audit logs.
+          All privileged actions are recorded in the audit log.
         </p>
       </header>
-      <nav className="-mx-2 flex flex-wrap gap-1 border-b border-border/60 pb-2">
+      <nav className="mt-4 flex flex-wrap items-center gap-1 overflow-x-auto">
         {tabs.map((tab) => (
           <Link
             key={tab.href}
             href={tab.href}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground",
+              "rounded-md px-3 py-1.5 text-sm text-foreground/65 transition-colors",
+              "hover:bg-white/[0.04] hover:text-foreground",
             )}
           >
             {tab.label}
           </Link>
         ))}
       </nav>
-      <div>{children}</div>
+      <div className="mt-6">{children}</div>
     </div>
   );
 }

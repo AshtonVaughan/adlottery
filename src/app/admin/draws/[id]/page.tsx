@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Download } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminDrawActions } from "@/components/admin/admin-draw-actions";
@@ -25,99 +26,212 @@ export default async function AdminDrawDetailPage({ params }: PageProps) {
     .maybeSingle<Draw>();
   if (!draw) notFound();
 
-  const [{ data: entries, count: entryCount }, { data: claim }] = await Promise.all([
-    admin
-      .from("entries")
-      .select("id, user_id, source, source_ref, country_code, created_at", { count: "exact" })
-      .eq("draw_id", draw.id)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    admin
-      .from("winner_claims")
-      .select("*")
-      .eq("draw_id", draw.id)
-      .maybeSingle<WinnerClaim>(),
-  ]);
+  const [{ data: entries, count: entryCount }, { data: claim }] =
+    await Promise.all([
+      admin
+        .from("entries")
+        .select(
+          "id, user_id, source, source_ref, country_code, created_at",
+          { count: "exact" },
+        )
+        .eq("draw_id", draw.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      admin
+        .from("winner_claims")
+        .select("*")
+        .eq("draw_id", draw.id)
+        .maybeSingle<WinnerClaim>(),
+    ]);
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between space-y-0">
-          <div>
-            <CardTitle>{draw.title}</CardTitle>
-            <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
-              {draw.draw_type.replace(/_/g, " ")}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <Badge variant={draw.status === "drawn" ? "info" : draw.status === "active" ? "success" : "default"}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link
+            href="/admin/draws"
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            ← All draws
+          </Link>
+          <div className="mt-1 flex items-center gap-2">
+            <Badge
+              variant={
+                draw.status === "drawn"
+                  ? "info"
+                  : draw.status === "active"
+                  ? "success"
+                  : draw.status === "locked"
+                  ? "warning"
+                  : "default"
+              }
+            >
               {draw.status}
             </Badge>
-            <Button asChild size="sm" variant="ghost">
-              <Link href={`/admin/draws/${draw.id}/export.csv`}>Export entries CSV</Link>
-            </Button>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              {draw.draw_type.replace(/_/g, " ")}
+            </span>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <Row label="Prize">{formatCurrency(Number(draw.prize_amount), draw.currency)}</Row>
-          <Row label="Window">{formatDateTime(draw.starts_at)} → {formatDateTime(draw.ends_at)}</Row>
-          <Row label="Eligible">{draw.eligible_country_codes.join(", ")}</Row>
-          <Row label="Excluded">{draw.excluded_country_codes.join(", ") || "—"}</Row>
-          <Row label="Sponsor">{draw.sponsor_name ?? "—"}</Row>
-          <Row label="Total entries">{(entryCount ?? 0).toLocaleString()}</Row>
-          {draw.status === "drawn" && (
-            <>
-              <Row label="Public seed"><code className="break-all">{draw.public_seed}</code></Row>
-              <Row label="Public seed hash"><code className="break-all text-xs">{draw.public_seed_hash}</code></Row>
-              <Row label="Randomness source">{draw.randomness_source}</Row>
-              <Row label="Winning entry">{draw.winning_entry_id ? maskEntryId(draw.winning_entry_id) : "—"}</Row>
-            </>
-          )}
-        </CardContent>
-      </Card>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+            {draw.title}
+          </h2>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/admin/draws/${draw.id}/export.csv`}>
+            <Download className="h-4 w-4" /> Entries CSV
+          </Link>
+        </Button>
+      </div>
 
-      <AdminDrawActions draw={draw} hasEntries={(entryCount ?? 0) > 0} hasClaim={!!claim} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardContent className="space-y-2 p-6 text-sm">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Prize &amp; window
+            </p>
+            <p className="stat text-3xl font-semibold">
+              {formatCurrency(Number(draw.prize_amount), draw.currency)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatDateTime(draw.starts_at)} → {formatDateTime(draw.ends_at)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {(entryCount ?? 0).toLocaleString()} entries
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-2 p-6 text-sm">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Eligibility
+            </p>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-foreground">Eligible: </span>
+              <span className="break-all font-mono">
+                {draw.eligible_country_codes.join(", ")}
+              </span>
+            </p>
+            {draw.excluded_country_codes.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                <span className="text-foreground">Excluded: </span>
+                <span className="break-all font-mono">
+                  {draw.excluded_country_codes.join(", ")}
+                </span>
+              </p>
+            )}
+            {draw.sponsor_name && (
+              <p className="text-xs text-muted-foreground">
+                Sponsor:{" "}
+                <span className="text-foreground">{draw.sponsor_name}</span>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {draw.status === "drawn" && (
+        <Card>
+          <CardContent className="space-y-2 p-6 font-mono text-xs">
+            <p className="font-sans text-[11px] uppercase tracking-widest text-muted-foreground">
+              Fairness proof
+            </p>
+            <p>
+              <span className="text-muted-foreground">public_seed: </span>
+              <span className="break-all">{draw.public_seed}</span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">public_seed_hash: </span>
+              <span className="break-all">{draw.public_seed_hash}</span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">randomness_source: </span>
+              <span className="break-all">{draw.randomness_source}</span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">winning_entry: </span>
+              {draw.winning_entry_id ? maskEntryId(draw.winning_entry_id) : "—"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <AdminDrawActions
+        draw={draw}
+        hasEntries={(entryCount ?? 0) > 0}
+        hasClaim={!!claim}
+      />
 
       {draw.status === "draft" && <DrawEditForm draw={draw} />}
 
-      <Card>
-        <CardHeader><CardTitle>Latest entries</CardTitle></CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+      <Card className="overflow-hidden">
+        <CardContent className="p-0">
+          <div className="flex items-baseline justify-between px-6 py-4">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Latest entries
+            </p>
+            <span className="text-xs text-muted-foreground">
+              showing up to 50
+            </span>
+          </div>
+          <div className="overflow-x-auto border-t border-white/[0.06]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="py-2 pr-3">Entry</th>
-                  <th className="py-2 pr-3">Source</th>
-                  <th className="py-2 pr-3">Country</th>
-                  <th className="py-2 pr-3">Time</th>
+                <tr className="text-left text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <th className="py-2 pl-6 pr-3 font-medium">Entry</th>
+                  <th className="py-2 pr-3 font-medium">Source</th>
+                  <th className="py-2 pr-3 font-medium">Country</th>
+                  <th className="py-2 pr-6 font-medium">Time</th>
                 </tr>
               </thead>
               <tbody>
-                {(entries as Pick<Entry, "id" | "source" | "source_ref" | "country_code" | "created_at">[] | null)?.map((e) => (
-                  <tr key={e.id} className="border-t border-border/60">
-                    <td className="py-1.5 pr-3"><code className="text-xs">{maskEntryId(e.id)}</code></td>
-                    <td className="py-1.5 pr-3">{e.source.replace(/_/g, " ")}</td>
-                    <td className="py-1.5 pr-3">{e.country_code}</td>
-                    <td className="py-1.5 pr-3 text-xs text-muted-foreground">
+                {(
+                  entries as
+                    | Pick<
+                        Entry,
+                        | "id"
+                        | "source"
+                        | "source_ref"
+                        | "country_code"
+                        | "created_at"
+                      >[]
+                    | null
+                )?.map((e) => (
+                  <tr
+                    key={e.id}
+                    className="border-t border-white/[0.04] hover:bg-white/[0.02]"
+                  >
+                    <td className="py-2 pl-6 pr-3">
+                      <code className="font-mono text-xs">
+                        {maskEntryId(e.id)}
+                      </code>
+                    </td>
+                    <td className="py-2 pr-3 text-foreground/80">
+                      {e.source.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">
+                      {e.country_code}
+                    </td>
+                    <td className="py-2 pr-6 text-xs text-muted-foreground">
                       {formatDateTime(e.created_at)}
                     </td>
                   </tr>
                 ))}
+                {(!entries || entries.length === 0) && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="border-t border-white/[0.04] py-10 text-center text-sm text-muted-foreground"
+                    >
+                      No entries yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="col-span-2 break-words text-foreground">{children}</span>
     </div>
   );
 }

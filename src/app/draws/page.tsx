@@ -1,6 +1,8 @@
 import { DrawCard } from "@/components/draw-card";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { APP_NAME } from "@/lib/constants";
 import type { Draw } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,6 @@ export default async function DrawsPage() {
     .order("ends_at", { ascending: true });
 
   const draws = (data as Draw[]) ?? [];
-
   const counts = await Promise.all(
     draws.map(async (d) => {
       const { count } = await admin
@@ -27,20 +28,32 @@ export default async function DrawsPage() {
   const countMap = new Map(counts);
 
   return (
-    <div className="container py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Active draws</h1>
-      <p className="mt-2 text-muted-foreground">
-        Free entry only. Region availability shown on the draw page.
-      </p>
-
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {draws.map((d) => (
-          <DrawCard key={d.id} draw={d} totalEntries={countMap.get(d.id) ?? 0} />
+    <div className="container max-w-5xl py-16">
+      <div className="max-w-2xl">
+        <Badge variant="outline">Active draws</Badge>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
+          Currently open on {APP_NAME}.
+        </h1>
+        <p className="mt-3 text-muted-foreground">
+          Free entry only. Region availability and eligibility steps appear on
+          each draw page.
+        </p>
+      </div>
+      <div className="mt-10 grid gap-4 md:grid-cols-2">
+        {draws.map((d, i) => (
+          <DrawCard
+            key={d.id}
+            draw={d}
+            totalEntries={countMap.get(d.id) ?? 0}
+            focal={i === 0 && draws.length === 1}
+          />
         ))}
         {draws.length === 0 && (
-          <Card><CardContent className="p-6 text-sm text-muted-foreground">
-            No active draws right now.
-          </CardContent></Card>
+          <Card>
+            <CardContent className="p-10 text-sm text-muted-foreground">
+              No active draws right now. The next one will appear here.
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

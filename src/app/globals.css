@@ -4,36 +4,39 @@
 
 @layer base {
   :root {
-    --background: 240 10% 7%;
+    /* surfaces */
+    --background: 240 6% 6%;
     --foreground: 0 0% 98%;
 
-    --card: 240 8% 9%;
+    --card: 240 6% 8%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 8% 9%;
+    --popover: 240 6% 8%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 162 83% 52%;
-    --primary-foreground: 240 10% 7%;
+    /* brand */
+    --primary: 152 76% 56%;
+    --primary-foreground: 152 86% 8%;
 
-    --secondary: 240 6% 14%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 240 6% 14%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 240 5% 11%;
+    --muted-foreground: 240 5% 62%;
 
-    --accent: 240 6% 14%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 240 5% 14%;
+    --accent-foreground: 0 0% 96%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 142 71% 45%;
+    --success: 152 70% 50%;
     --success-foreground: 0 0% 98%;
 
-    --border: 240 6% 16%;
-    --input: 240 6% 16%;
-    --ring: 162 83% 52%;
+    /* borders / rings */
+    --border: 240 5% 14%;
+    --input: 240 5% 14%;
+    --ring: 152 76% 56%;
 
     --radius: 0.75rem;
   }
@@ -44,25 +47,52 @@
 
   html, body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased;
   }
 
   body {
     min-height: 100dvh;
+    background-image:
+      radial-gradient(circle at 10% -20%, hsl(152 60% 22% / 0.18), transparent 40%),
+      radial-gradient(circle at 95% -10%, hsl(220 70% 28% / 0.12), transparent 45%);
+    background-attachment: fixed;
   }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
+  }
+  h1 { letter-spacing: -0.025em; }
+  h2 { letter-spacing: -0.02em; }
 }
 
 @layer utilities {
-  .gradient-border {
-    position: relative;
-    isolation: isolate;
+  /* Subtle dotted-grid overlay used on hero sections. */
+  .bg-dot-grid {
+    background-image:
+      radial-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: -1px -1px;
   }
-  .gradient-border::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(135deg, hsl(162 83% 52% / 0.4), hsl(220 90% 60% / 0.2));
-    z-index: -1;
+  /* Soft gradient backing for hero cards / focal stats. */
+  .bg-focal {
+    background:
+      linear-gradient(180deg, hsl(var(--card)) 0%, hsl(240 6% 7%) 100%);
+  }
+  /* Hairline divider that doesn't shout. */
+  .hairline {
+    border-color: hsl(var(--foreground) / 0.08);
+  }
+  /* Animated gradient text for the prize amount. */
+  .text-glow-primary {
+    background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(152 86% 70%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Number stat — tabular figures + tight tracking. */
+  .stat {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 }

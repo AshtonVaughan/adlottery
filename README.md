@@ -15,19 +15,21 @@ prize pools are funded by the platform, sponsors, and (later) advertising.
 ## V1 does
 
 - Web sign-up, login, password reset (Supabase Auth)
-- Configurable jurisdiction engine (open / restricted / waitlist / blocked)
-- Region availability page + per-country signup gating
-- Weekly free prize draw — full draft → active → locked → drawn → published lifecycle
-- One free daily entry per eligible user per draw (server-enforced)
-- Referral system: code on signup, bonus entry awarded after the referred user's first valid daily claim
-- Deterministic, verifiable winner selection with public seed + hash + randomness source
-- Public archive of completed draws (fairness proof page)
-- Winner claim workflow with verification + skill-question support (Canada-style, India-style, etc.)
-- Admin console: draws CRUD, lifecycle, jurisdiction settings, winner claims, user ban/unban, fraud queue, audit log, sponsor list, CSV export
+- Server-side country hint from `x-vercel-ip-country` / `cf-ipcountry` headers — used to preselect, never to enforce
+- Configurable jurisdiction engine (open / restricted / waitlist / blocked) covering USA, Canada, UK, Australia, NZ, Western Europe, Nordics, Eastern Europe, Japan, South Korea, LATAM, SEA, India, MENA out of the box
+- Region availability page + per-country signup gating + waitlist capture
+- Weekly free prize draw — full draft → active → locked → drawn → published lifecycle, including in-place edit of draft draws
+- One free daily entry per eligible user per draw (server-enforced via a unique constraint on `(user_id, draw_id, claim_date)`)
+- Referral system: code captured on signup, bonus entry awarded after the referred user's first valid daily claim
+- Deterministic, verifiable winner selection with public seed + SHA-256 hash + randomness source committed in advance
+- Public archive of completed draws with full fairness proof and region-aware winner display modes
+- Winner claim workflow with identity-verification placeholder + skill-question support (Canada-style, India-style)
+- Admin console: draws CRUD + lifecycle, jurisdictions editor, user ban/unban, winner claims review, fraud queue, audit log, sponsors, CSV export
 - Audit log on every privileged action
-- Fraud-flag heuristic (device-hash velocity, shareable account detection placeholder)
-- Premium dark-first responsive UI with shadcn-style primitives
-- Tests covering eligibility, deterministic draw, validation, and referral helpers
+- Fraud-flag heuristic (device-hash velocity); flags queue for manual review, no auto-ban
+- Email-template module wired through the central brand constant so future Resend integration plugs in
+- Premium dark-first responsive UI built on Geist Sans, shadcn-style primitives, and a refined color system (no casino visuals)
+- 37 unit tests covering eligibility, deterministic draw, validation, referral, skill-question, self-referral, and daily-entry uniqueness
 
 ## V1 intentionally does **not** do
 
@@ -41,16 +43,16 @@ prize pools are funded by the platform, sponsors, and (later) advertising.
 
 ## Tech stack
 
-- **Frontend / backend:** Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn-style primitives
+- **Frontend / backend:** Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn-style primitives
+- **Typography:** Geist Sans + Geist Mono via `next/font` (no CDN call)
 - **Auth + DB:** Supabase Postgres + Supabase Auth with full RLS
-- **Hosting:** Vercel
+- **Hosting:** Vercel (serverless functions, no filesystem persistence)
 - **Validation:** Zod
-- **Forms:** plain React + hook helpers (RHF available if needed)
-- **Bot protection:** Cloudflare Turnstile placeholder
-- **Email:** Resend placeholder
+- **Bot protection:** Cloudflare Turnstile placeholder (auto-bypassed in dev)
+- **Email:** Resend placeholder + central email-template module
 - **Identity:** Stripe Identity placeholder (winner verification UI button)
 - **Payouts:** Manual Wise / Stripe payout status tracking in V1
-- **Analytics:** PostHog-ready hooks
+- **Analytics:** PostHog-ready hook (no-op until configured)
 
 ---
 
@@ -241,12 +243,39 @@ Every step is recorded in `audit_logs`.
 
 ---
 
-## Legal / compliance placeholder note
+## Legal documents
 
-The legal pages (`/legal/*`) are **placeholders only**. They must be reviewed,
-rewritten, and approved by qualified counsel for every region you intend to
-launch in. The jurisdiction-engine defaults are conservative starting points,
-**not** legal advice, and need country-specific review.
+Seven versioned drafts live under `/legal/*`:
+
+| Route | Document | Version |
+| --- | --- | --- |
+| `/legal/terms` | Terms &amp; Conditions | `LEGAL_VERSIONS.terms` |
+| `/legal/privacy` | Privacy Policy | `LEGAL_VERSIONS.privacy` |
+| `/legal/draw-rules` | Draw Rules (entry methods, fairness method, claim flow) | `LEGAL_VERSIONS.drawRules` |
+| `/legal/responsible-participation` | Responsible Participation | `LEGAL_VERSIONS.terms` |
+| `/legal/fraud-policy` | Fraud &amp; Multi-Account Policy | `LEGAL_VERSIONS.terms` |
+| `/legal/regional-eligibility` | Regional Eligibility Rules | `LEGAL_VERSIONS.terms` |
+| `/legal/no-purchase-required` | No Purchase Required | `LEGAL_VERSIONS.drawRules` |
+
+These are real **drafts** — substantive copy that reflects the product's
+design — wrapped in a clearly visible "Draft placeholder" banner. They are
+**not legal advice** and must be reviewed, region-by-region, by qualified
+counsel before any public launch. Per-region adjustments belong in the
+`jurisdictions` table (terms_version, privacy_version, draw_rules_version)
+and in the document copy itself.
+
+Bump `LEGAL_VERSIONS` in `src/lib/constants.ts` whenever the legal copy
+materially changes; signup records the accepted versions on the profile so
+you can prompt re-acceptance after a bump.
+
+## Design system
+
+- **Fonts:** Geist Sans + Geist Mono, loaded via `next/font` with no external request.
+- **Color tokens:** HSL custom properties in `src/app/globals.css` — emerald primary `152 76% 56%`, neutral background `240 6% 6%`. Adjust there to rebrand visually.
+- **Motion:** subtle hover and active-press transitions on primary surfaces. No bouncing, no parallax, no carousel.
+- **Iconography:** Lucide. Use sparingly — one icon per section header, never decorative.
+- **Stats:** monospace tabular figures via the `.stat` utility for any number that updates (entries, countdowns, prize amounts).
+- **Layout primitives:** `Card`, `Button`, `Badge`, `Input`, `Select`, `Textarea`, `Checkbox`, `Label`, `BrandMark`, `Countdown`, `DrawCard`. All under `src/components/ui` or `src/components`.
 
 ---
 

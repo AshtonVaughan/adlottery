@@ -3,8 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface CheckboxProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type CheckboxProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, ...props }, ref) => (
@@ -12,7 +11,8 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
       ref={ref}
       type="checkbox"
       className={cn(
-        "h-4 w-4 rounded border border-input bg-background text-primary focus:ring-2 focus:ring-ring",
+        "mt-0.5 h-4 w-4 cursor-pointer rounded border border-white/15 bg-white/[0.03] text-primary",
+        "accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         className,
       )}
       {...props}

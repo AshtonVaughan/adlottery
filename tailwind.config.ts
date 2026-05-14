@@ -61,7 +61,15 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      letterSpacing: {
+        tightest: "-0.04em",
+      },
+      boxShadow: {
+        focal:
+          "0 1px 0 0 hsl(0 0% 100% / 0.04) inset, 0 24px 80px -32px hsl(152 80% 50% / 0.18)",
       },
       keyframes: {
         "accordion-down": {

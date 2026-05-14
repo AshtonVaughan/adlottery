@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SkillAnswerForm } from "@/components/skill-answer-form";
@@ -45,36 +45,51 @@ export default async function WinnerClaimPage({ params }: PageProps) {
     : { data: null };
 
   return (
-    <div className="container max-w-2xl space-y-6 py-12">
-      <header>
-        <Badge variant="info">Winner claim</Badge>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-          You won {formatCurrency(Number(draw.prize_amount), draw.currency)}
+    <div className="container max-w-3xl space-y-6 py-12">
+      <header className="space-y-2">
+        <Badge variant="success">You won</Badge>
+        <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+          {formatCurrency(Number(draw.prize_amount), draw.currency)}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Draw: {draw.title} ·{" "}
-          {draw.published_at ? formatDateTime(draw.published_at) : "pending publication"}
+        <p className="text-sm text-muted-foreground">
+          {draw.title} ·{" "}
+          {draw.published_at
+            ? `published ${formatDateTime(draw.published_at)}`
+            : "publication pending"}
         </p>
       </header>
 
       <Card>
-        <CardHeader><CardTitle>Claim status</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <Row label="Status"><Badge variant="warning">{claim.claim_status}</Badge></Row>
-          <Row label="Payout status">{claim.payout_status}</Row>
-          {claim.payout_reference && (
-            <Row label="Reference"><code>{claim.payout_reference}</code></Row>
-          )}
+        <CardContent className="space-y-3 p-6">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Claim status
+          </p>
+          <div className="space-y-2 text-sm">
+            <Row label="Claim">
+              <Badge variant="warning">{claim.claim_status}</Badge>
+            </Row>
+            <Row label="Payout">
+              <Badge>{claim.payout_status}</Badge>
+            </Row>
+            {claim.payout_reference && (
+              <Row label="Reference">
+                <code className="font-mono text-foreground">
+                  {claim.payout_reference}
+                </code>
+              </Row>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Identity verification</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            We use a third-party identity verification provider (Stripe Identity
-            placeholder). You will be prompted to complete verification before
-            payout. This is mandatory in most regions.
+        <CardContent className="space-y-3 p-6">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Identity verification
+          </p>
+          <p className="text-sm text-muted-foreground">
+            We use a third-party identity provider (Stripe Identity placeholder)
+            to verify winners before payout. This is mandatory in most regions.
           </p>
           <Button disabled>Start identity verification (coming soon)</Button>
         </CardContent>
@@ -82,10 +97,12 @@ export default async function WinnerClaimPage({ params }: PageProps) {
 
       {claim.skill_question_required && (
         <Card>
-          <CardHeader><CardTitle>Skill question</CardTitle></CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="space-y-3 p-6">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Skill question
+            </p>
             {claim.skill_question_answered ? (
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Answer submitted. Awaiting admin review.
               </p>
             ) : skillQuestion ? (
@@ -94,7 +111,7 @@ export default async function WinnerClaimPage({ params }: PageProps) {
                 question={skillQuestion.question as string}
               />
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 A skill question will be issued shortly.
               </p>
             )}
@@ -104,7 +121,7 @@ export default async function WinnerClaimPage({ params }: PageProps) {
 
       <p className="text-xs text-muted-foreground">
         Need help?{" "}
-        <Link href="/legal/draw-rules" className="hover:text-foreground">
+        <Link href="/legal/draw-rules" className="text-foreground hover:underline">
           Read the draw rules
         </Link>
       </p>
@@ -112,12 +129,16 @@ export default async function WinnerClaimPage({ params }: PageProps) {
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="grid grid-cols-3 gap-2">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
+    <div className="grid grid-cols-3 gap-3 border-b border-white/[0.04] pb-2 last:border-0 last:pb-0">
+      <span className="text-muted-foreground">{label}</span>
       <span className="col-span-2 break-words text-foreground">{children}</span>
     </div>
   );

@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Only set for the static GitHub Pages preview (served from /<repo>/).
+  basePath: process.env.PAGES_BASE_PATH || undefined,
   async headers() {
     return [
       {

@@ -49,6 +49,16 @@ Without Supabase keys the site runs in **demo mode**: sample data, with sign-in 
 
 Ads use Google AdSense via `NEXT_PUBLIC_ADSENSE_CLIENT` and `NEXT_PUBLIC_ADSENSE_SLOT`. Without them, placeholder boxes are shown.
 
+## GitHub Pages preview
+
+GitHub Pages can only serve fixed files, so it can't run the real app (it needs a server for the secret draw seeds, entries and the weekly cron). `.github/workflows/pages.yml` publishes a **static, demo-data preview** instead, which is useful for sharing the design:
+
+1. Repo **Settings → Pages → Source: GitHub Actions**. Pages on a private repo needs a paid GitHub plan; otherwise make the repo public.
+2. Merge to `main`, or run the "Pages preview" workflow by hand. It rebuilds every Monday so the demo dates stay current.
+3. The preview is at `https://<user>.github.io/adlottery/`.
+
+To build it locally: `PAGES_BASE_PATH=/adlottery npm run build && node scripts/export-pages.mjs`, which writes to `out/`.
+
 ## Code map
 
 - `src/lib/draw.ts` handles the lifecycle: create with commitment, close, draw, rollover, forfeit.

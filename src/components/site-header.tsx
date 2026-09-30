@@ -1,59 +1,39 @@
+"use client";
+
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { BrandMark } from "@/components/brand-mark";
-import { APP_NAME } from "@/lib/constants";
-import { getCurrentSession } from "@/lib/auth";
+import { Brand } from "@/components/brand";
+import { useAuth } from "@/components/auth-provider";
 
-const NAV = [
-  { href: "/draws", label: "Draws" },
-  { href: "/archive", label: "Archive" },
-  { href: "/regions", label: "Regions" },
-  { href: "/legal/no-purchase-required", label: "Free entry" },
-];
-
-export async function SiteHeader() {
-  const session = await getCurrentSession();
+export function SiteHeader() {
+  const { ready, session, me } = useAuth();
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-background/70 backdrop-blur-xl">
-      <div className="container flex h-14 items-center justify-between">
-        <Link href="/" className="group flex items-center gap-2">
-          <BrandMark />
-          <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
-        </Link>
-        <nav className="hidden items-center gap-7 text-sm md:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-foreground/60 transition-colors hover:text-foreground"
-            >
-              {item.label}
+    <header className="border-b border-line/70">
+      <div className="container flex h-16 items-center justify-between gap-4">
+        <Brand />
+        <nav className="flex items-center gap-1 text-sm sm:gap-2">
+          <Link href="/results/" className="rounded-full px-3 py-2 text-muted hover:text-ink">
+            Results
+          </Link>
+          <Link href="/rules/" className="hidden rounded-full px-3 py-2 text-muted hover:text-ink sm:block">
+            Rules
+          </Link>
+          {me?.is_admin && (
+            <Link href="/admin/" className="rounded-full px-3 py-2 text-muted hover:text-ink">
+              Admin
             </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-1">
-          {session ? (
-            <>
-              {session.profile.is_admin && (
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/admin">Admin</Link>
-                </Button>
-              )}
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/signup">Sign up</Link>
-              </Button>
-            </>
           )}
-        </div>
+          {!ready ? (
+            <span className="h-9 w-[76px]" aria-hidden="true" />
+          ) : session ? (
+            <Link href="/account/" className="btn-ghost h-9 px-4">
+              Account
+            </Link>
+          ) : (
+            <Link href="/login/" className="btn-dark h-9 px-4">
+              Sign in
+            </Link>
+          )}
+        </nav>
       </div>
     </header>
   );

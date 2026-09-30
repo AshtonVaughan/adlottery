@@ -1,105 +1,78 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { BrandMark } from "@/components/brand-mark";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { APP_NAME } from "@/lib/constants";
+import { MailCheck } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
+import { BASE_PATH } from "@/lib/config";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { demo, session } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (session) router.replace("/account/");
+  }, [session, router]);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const db = supabase();
+    if (!db) return;
+    setBusy(true);
     setError(null);
-    setSubmitting(true);
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: signinError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signinError) {
-        setError(signinError.message);
-        return;
-      }
-      router.push("/dashboard");
-      router.refresh();
-    } finally {
-      setSubmitting(false);
-    }
+    const { error } = await db.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}${BASE_PATH}/auth/callback/` },
+    });
+    setBusy(false);
+    if (error) setError(error.message);
+    else setSent(true);
   }
 
   return (
-    <div className="container flex max-w-sm flex-col items-center py-20">
-      <Link href="/" className="flex items-center gap-2">
-        <BrandMark />
-        <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
-      </Link>
-      <Card className="mt-6 w-full">
-        <CardContent className="space-y-5 p-6">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Log in to claim today&apos;s free entry.
-            </p>
+    <div className="container max-w-md py-16">
+      <h1 className="text-3xl font-semibold tracking-tight">Sign in to enter</h1>
+      <p className="mt-2 text-muted">We&apos;ll email you a sign-in link. No password, and it&apos;s always free.</p>
+      <div className="mt-8">
+        {demo ? (
+          <p className="card p-4 text-sm text-muted">Sign-in is off in demo mode. Add your Supabase keys to enable it.</p>
+        ) : sent ? (
+          <div className="card flex gap-4 p-5">
+            <MailCheck className="mt-0.5 h-6 w-6 shrink-0" />
+            <div>
+              <p className="font-semibold">Check your inbox</p>
+              <p className="mt-1 text-sm text-muted">
+                We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open it in this browser.
+              </p>
+            </div>
           </div>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="label">Email</label>
+              <input
                 id="email"
                 type="email"
-                autoComplete="email"
                 required
+                autoComplete="email"
+                className="field"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-baseline justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Forgot?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Signing in…" : (
-                <>Sign in <ArrowRight className="h-4 w-4" /></>
-              )}
-            </Button>
+            <button type="submit" className="btn-dark w-full" disabled={busy}>
+              {busy ? "Sending…" : "Email me a sign-in link"}
+            </button>
+            {error && <p className="text-sm text-bad">{error}</p>}
           </form>
-          <p className="text-center text-xs text-muted-foreground">
-            New here?{" "}
-            <Link href="/signup" className="text-foreground hover:underline">
-              Create a free account
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   );
 }

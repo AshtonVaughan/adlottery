@@ -5,49 +5,31 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = "USD"): string {
+export function formatMoney(amount: number, currency = "USD", cents = false): string {
   try {
-    return new Intl.NumberFormat("en", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: cents ? 2 : 0,
+      maximumFractionDigits: cents ? 2 : 0,
     }).format(amount);
   } catch {
-    return `${currency} ${amount.toLocaleString()}`;
+    return `${currency} ${amount.toLocaleString("en-US")}`;
   }
 }
 
-export function formatDateTime(value: string | Date): string {
+export function formatUtc(value: string | Date, withTime = true): string {
   const d = typeof value === "string" ? new Date(value) : value;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
+  return d.toLocaleString("en-GB", {
+    timeZone: "UTC",
+    weekday: withTime ? "short" : undefined,
+    day: "numeric",
     month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export function formatDate(value: string | Date): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  return d.toLocaleDateString(undefined, {
     year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
+    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+  }) + (withTime ? " UTC" : "");
 }
 
-export function maskEntryId(id: string): string {
-  if (!id) return "";
-  const head = id.slice(0, 4);
-  const tail = id.slice(-4);
-  return `${head}…${tail}`;
-}
-
-export function ageFromDob(dob: string | Date, asOf: Date = new Date()): number {
-  const d = typeof dob === "string" ? new Date(dob) : dob;
-  let age = asOf.getFullYear() - d.getFullYear();
-  const m = asOf.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && asOf.getDate() < d.getDate())) age--;
-  return age;
+export function shortId(id: string): string {
+  return `${id.slice(0, 8)}…`;
 }

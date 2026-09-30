@@ -1,323 +1,178 @@
+"use client";
+
 import Link from "next/link";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Globe2,
-  KeyRound,
-  ScrollText,
-  ShieldCheck,
-  Sparkles,
-  Users,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { DrawCard } from "@/components/draw-card";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { APP_NAME, BRAND } from "@/lib/constants";
-import type { Draw } from "@/lib/types";
+import { ArrowRight, CalendarCheck, Coins, ShieldCheck } from "lucide-react";
+import { getHome } from "@/lib/queries";
+import { useLoad, LoadError } from "@/components/use-load";
+import { useAuth } from "@/components/auth-provider";
+import { EnterButton } from "@/components/enter-button";
+import { Countdown } from "@/components/countdown";
+import { PotBreakdown } from "@/components/pot-breakdown";
+import { AdSlot } from "@/components/ad-slot";
+import { AD_SHARE_PERCENT, CLAIM_WINDOW_DAYS, SPONSOR_CONTACT } from "@/lib/config";
+import { countryName } from "@/lib/countries";
+import { weekLabel } from "@/lib/week";
+import { formatMoney, formatUtc } from "@/lib/utils";
+import type { DrawView } from "@/lib/types";
 
-async function loadFeaturedDraw(): Promise<{
-  draw: Draw | null;
-  totalEntries: number;
-}> {
-  try {
-    const admin = getSupabaseAdminClient();
-    const { data } = await admin
-      .from("draws")
-      .select("*")
-      .eq("status", "active")
-      .order("ends_at", { ascending: true })
-      .limit(1)
-      .maybeSingle<Draw>();
-
-    if (!data) return { draw: null, totalEntries: 0 };
-    const { count } = await admin
-      .from("entries")
-      .select("id", { head: true, count: "exact" })
-      .eq("draw_id", data.id);
-
-    return { draw: data, totalEntries: count ?? 0 };
-  } catch {
-    return { draw: null, totalEntries: 0 };
-  }
-}
-
-async function loadStats() {
-  try {
-    const admin = getSupabaseAdminClient();
-    const [open, drawn, openCountries] = await Promise.all([
-      admin.from("draws").select("id", { head: true, count: "exact" }).eq("status", "active"),
-      admin.from("draws").select("id", { head: true, count: "exact" }).eq("status", "drawn"),
-      admin
-        .from("jurisdictions")
-        .select("country_code", { head: true, count: "exact" })
-        .eq("status", "open"),
-    ]);
-    return {
-      active: open.count ?? 0,
-      drawn: drawn.count ?? 0,
-      countries: openCountries.count ?? 0,
-    };
-  } catch {
-    return { active: 0, drawn: 0, countries: 0 };
-  }
-}
-
-export default async function HomePage() {
-  const [{ draw, totalEntries }, stats] = await Promise.all([
-    loadFeaturedDraw(),
-    loadStats(),
-  ]);
+export default function HomePage() {
+  const { me } = useAuth();
+  // Reload the pot/entry count after the signed-in user's entry count changes.
+  const { data, error } = useLoad(getHome, me?.entries);
+  if (error) return <LoadError message={error} />;
+  const current = data?.current ?? null;
+  const last = data?.last ?? null;
 
   return (
     <>
-      {/* HERO ----------------------------------------------------- */}
-      <section className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[640px] bg-dot-grid opacity-30 [mask-image:radial-gradient(60%_60%_at_50%_0%,#000_60%,transparent_100%)]"
-          aria-hidden
-        />
-        <div className="container relative grid items-center gap-12 py-16 lg:grid-cols-[1.05fr_1fr] lg:py-24">
-          <div className="space-y-7">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-xs text-foreground/80">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-              </span>
-              Free entry · Public draws · {stats.countries}+ countries open
-            </div>
-            <h1 className="text-5xl font-semibold leading-[1.05] tracking-tightest text-foreground md:text-6xl">
-              Win real prizes.{" "}
-              <span className="text-glow-primary">Pay nothing.</span> Ever.
-            </h1>
-            <p className="max-w-xl text-lg text-muted-foreground">
-              {BRAND.description}
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup">
-                  Claim your free entry <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/regions">Is my country open?</Link>
-              </Button>
-            </div>
+      <section className="container grid gap-10 pb-16 pt-10 md:pt-16 lg:grid-cols-[1.35fr_1fr] lg:items-center lg:gap-14">
+        <div className="min-w-0">
+          <p className="eyebrow">{current ? weekLabel(current.draw.week_start) + " · " : ""}This week&apos;s pot</p>
+          <h1 className="num mt-3 break-words text-[clamp(4.25rem,17vw,9.5rem)] font-semibold leading-[0.85] tracking-tightest">
+            {current ? formatMoney(current.pot.total, current.draw.currency) : <span className="text-line">$—</span>}
+          </h1>
+          <p className="mt-5 max-w-md text-lg text-muted">One free draw. One winner takes the whole pot every Monday.</p>
+          {current && (
+            <>
+              <div className="mt-8 max-w-xl">
+                <PotBreakdown pot={current.pot} currency={current.draw.currency} />
+              </div>
+              {current.sponsor && <SponsorLine view={current} />}
+            </>
+          )}
+        </div>
 
-            <dl className="grid max-w-md grid-cols-3 gap-x-6 gap-y-1 pt-4">
-              <Stat label="Open countries" value={stats.countries} />
-              <Stat label="Live draws" value={stats.active} />
-              <Stat label="Completed" value={stats.drawn} />
-            </dl>
+        <div className="ticket rounded-2xl bg-accent p-6 text-accent-ink sm:p-8">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold uppercase tracking-[0.14em]">Draw closes in</p>
+            {current && <p className="num text-sm opacity-70">{current.entries.toLocaleString("en-US")} entries</p>}
           </div>
-
-          <div className="relative">
-            {draw ? (
-              <DrawCard draw={draw} totalEntries={totalEntries} focal />
-            ) : (
-              <Card className="bg-focal shadow-focal">
-                <CardContent className="space-y-4 p-10 text-center">
-                  <Sparkles className="mx-auto h-7 w-7 text-primary" />
-                  <h3 className="text-xl font-semibold">
-                    The next free prize draw is being prepared
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Create a free account and we&apos;ll notify you the moment
-                    it opens.
-                  </p>
-                  <Button asChild className="mt-2">
-                    <Link href="/signup">Get notified</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              Region availability and rules vary by country.{" "}
-              <Link href="/regions" className="text-foreground/80 underline-offset-2 hover:underline">
-                Check yours
-              </Link>
-              .
+          <div className="mt-4">
+            {current ? <Countdown to={current.draw.closes_at} /> : <div className="h-[68px] rounded-xl bg-accent-ink/[0.07]" />}
+          </div>
+          <div className="my-6 border-t-2 border-dashed border-accent-ink/25" />
+          <EnterButton />
+          {current && (
+            <p className="mt-4 text-center text-xs opacity-60">
+              Closes {formatUtc(current.draw.closes_at)} · winner drawn right after
             </p>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* TRUST BAND ----------------------------------------------- */}
-      <section className="border-y border-white/[0.06] bg-white/[0.02]">
-        <div className="container grid gap-y-6 py-8 text-sm text-muted-foreground md:grid-cols-3 lg:grid-cols-6">
-          {[
-            "Free to enter",
-            "No purchase required",
-            "Public draw archive",
-            "Verifiable seed + hash",
-            "Region-aware rules",
-            "Verified winners",
-          ].map((b) => (
-            <div key={b} className="flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-              <span>{b}</span>
-            </div>
-          ))}
+      <section className="border-y border-line/70 bg-surface/60">
+        <div className="container grid gap-8 py-14 md:grid-cols-3">
+          <Step icon={CalendarCheck} title="Enter free, every day">
+            Sign in with your email and tap enter. One entry a day, up to seven a week. You never pay, and you never
+            have to watch or click an ad.
+          </Step>
+          <Step icon={Coins} title="Sponsors and ads fill the pot">
+            Each week&apos;s sponsor puts in the base prize, and {AD_SHARE_PERCENT}% of this site&apos;s ad revenue is
+            added on top. Every dollar is listed in a public ledger.
+          </Step>
+          <Step icon={ShieldCheck} title="One winner, provably fair">
+            Before entries close we publish a locked-in secret and pick a future public random number. Anyone can
+            re-run the draw and check the winner.
+          </Step>
         </div>
       </section>
 
-      {/* HOW IT WORKS --------------------------------------------- */}
-      <section className="container py-20">
-        <div className="mb-12 max-w-2xl">
-          <Badge variant="outline">How it works</Badge>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            Three steps. Zero payment. Public proof.
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            {APP_NAME} is built around three commitments: a free way in, a
-            transparent draw, and a verified winner. Nothing else.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Step
-            number="01"
-            icon={Users}
-            title="Sign up for free"
-            copy="Pick your country, confirm you're eligible, and accept the regional rules. We never ask for payment."
-          />
-          <Step
-            number="02"
-            icon={Sparkles}
-            title="Claim daily entries"
-            copy="One free entry per day per active draw. Invite friends to earn referral entries. Sponsored draws unlock bonus events."
-          />
-          <Step
-            number="03"
-            icon={ShieldCheck}
-            title="Follow the public draw"
-            copy="Each draw publishes a seed, hash, and randomness source. Anyone can re-run the math and verify the winning entry."
-          />
-        </div>
-      </section>
-
-      {/* PROOF ---------------------------------------------------- */}
-      <section className="border-t border-white/[0.06] bg-white/[0.02]">
-        <div className="container grid gap-12 py-20 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-          <div className="space-y-4">
-            <Badge variant="outline">Verifiable fairness</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
-              Anyone can audit the draw.
-            </h2>
-            <p className="text-muted-foreground">
-              Once a draw closes, we publish the seed, its SHA-256 hash, the
-              randomness source we committed to in advance, and the total entry
-              count. The winning entry index is a deterministic function of
-              those public values — no hidden picks, no silent reruns.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="outline">
-                <Link href="/archive">Browse public archive</Link>
-              </Button>
-              <Button asChild variant="ghost">
-                <Link href="/legal/draw-rules">Read the draw rules</Link>
-              </Button>
-            </div>
-          </div>
+      <section className="container grid gap-10 py-16 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
+        <div className="space-y-10">
+          {last && <LastResult view={last} />}
           <div>
-            <Card className="bg-focal">
-              <CardContent className="space-y-5 p-6 font-mono text-xs">
-                <div className="flex items-center justify-between text-foreground/60">
-                  <span className="text-[11px] uppercase tracking-widest">
-                    Draw archive · sample entry
-                  </span>
-                  <ScrollText className="h-4 w-4" />
-                </div>
-                <pre className="overflow-x-auto whitespace-pre-wrap break-words text-foreground/90">
-{`draw_id           = 7bea…c2a0
-total_entries     = 14,832
-public_seed       = "weekly-draw-2026-05-21"
-public_seed_hash  = sha256(seed) = 9f0d…b1c7
-randomness_source = bitcoin:block:000…abc
-winner_index      = sha256(seed + source) % total_entries
-                  = 9_241
-status            = drawn · published`}
-                </pre>
-                <div className="flex items-center gap-2 text-foreground/60">
-                  <KeyRound className="h-3.5 w-3.5" />
-                  <span>Re-runnable by anyone with a hash function.</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* GLOBAL CTA ----------------------------------------------- */}
-      <section className="container py-20">
-        <Card className="relative overflow-hidden bg-focal shadow-focal">
-          <div
-            className="pointer-events-none absolute inset-0 bg-dot-grid opacity-30"
-            aria-hidden
-          />
-          <div className="relative grid items-center gap-6 p-10 md:grid-cols-[1.4fr_1fr]">
-            <div className="space-y-3">
-              <Globe2 className="h-7 w-7 text-primary" />
-              <h2 className="text-3xl font-semibold tracking-tight">
-                Built for the world, region by region.
-              </h2>
-              <p className="text-muted-foreground">
-                We roll out country-by-country with eligibility, age, prize-cap,
-                and winner-display rules configured per region. No grey areas,
-                no surprises.
+            <h2 className="text-2xl font-semibold tracking-tight">Where the money comes from</h2>
+            <div className="mt-4 space-y-3 text-muted">
+              <p>
+                <span className="font-medium text-ink">Sponsors</span> pay to put their name on a week, and their
+                money goes straight into that week&apos;s pot.
+              </p>
+              <p>
+                <span className="font-medium text-ink">Ads</span> on this site earn revenue, and {AD_SHARE_PERCENT}% of
+                it goes into the pot. The rest keeps the lights on.
+              </p>
+              <p>
+                <span className="font-medium text-ink">Unclaimed prizes</span> roll over. A winner has{" "}
+                {CLAIM_WINDOW_DAYS} days to claim; after that, the money goes into the next pot.
               </p>
             </div>
-            <div className="flex flex-col gap-2 md:items-end">
-              <Button asChild size="lg">
-                <Link href="/signup">Create free account</Link>
-              </Button>
-              <Button asChild size="lg" variant="ghost">
-                <Link href="/regions">See regional rules</Link>
-              </Button>
-            </div>
+            {current && (
+              <Link
+                href={`/draw/?id=${current.draw.id}`}
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+              >
+                See this week&apos;s ledger <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
           </div>
-        </Card>
+        </div>
+        <AdSlot className="lg:pt-1" />
+      </section>
+
+      <section className="container">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-ink p-8 text-bg sm:p-10 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">Put your brand on the pot</h2>
+            <p className="mt-2 max-w-lg opacity-70">
+              Sponsor a week: your name on every page, and your prize in front of everyone who enters.
+            </p>
+          </div>
+          <a href={`mailto:${SPONSOR_CONTACT}?subject=Sponsoring%20a%20week`} className="btn-primary shrink-0">
+            Sponsor a week
+          </a>
+        </div>
       </section>
     </>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function SponsorLine({ view }: { view: DrawView }) {
+  const s = view.sponsor!;
   return (
-    <>
-      <dt className="row-start-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="stat row-start-1 text-2xl font-semibold text-foreground">
-        {value.toLocaleString()}
-      </dd>
-    </>
+    <p className="mt-6 text-sm text-muted">
+      This week presented by{" "}
+      {s.url ? (
+        <a href={s.url} target="_blank" rel="noopener sponsored" className="font-semibold text-ink underline-offset-4 hover:underline">
+          {s.name}
+        </a>
+      ) : (
+        <span className="font-semibold text-ink">{s.name}</span>
+      )}
+      {s.tagline && <> · {s.tagline}</>}
+    </p>
   );
 }
 
-function Step({
-  number,
-  icon: Icon,
-  title,
-  copy,
-}: {
-  number: string;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  copy: string;
-}) {
+function Step({ icon: Icon, title, children }: { icon: typeof Coins; title: string; children: React.ReactNode }) {
   return (
-    <Card>
-      <CardContent className="space-y-4 p-6">
-        <div className="flex items-center justify-between">
-          <Icon className="h-5 w-5 text-primary" />
-          <span className="font-mono text-xs text-muted-foreground">
-            {number}
-          </span>
-        </div>
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-        <p className="text-sm text-muted-foreground">{copy}</p>
-      </CardContent>
-    </Card>
+    <div>
+      <Icon className="h-6 w-6" strokeWidth={1.75} />
+      <h3 className="mt-4 font-semibold">{title}</h3>
+      <p className="mt-2 text-[15px] leading-relaxed text-muted">{children}</p>
+    </div>
+  );
+}
+
+function LastResult({ view }: { view: DrawView }) {
+  const { draw, winner } = view;
+  return (
+    <div className="card p-6">
+      <p className="eyebrow">Last draw · {weekLabel(draw.week_start)}</p>
+      {winner ? (
+        <p className="mt-3 text-2xl font-semibold tracking-tight">
+          {winner.name}
+          {winner.country && <span className="text-muted"> from {countryName(winner.country)}</span>} won{" "}
+          <span className="num">{formatMoney(draw.prize_amount ?? 0, draw.currency, true)}</span>
+        </p>
+      ) : (
+        <p className="mt-3 text-2xl font-semibold tracking-tight">No entries, so the pot rolled over.</p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
+        <span className="num">{(draw.total_entries ?? 0).toLocaleString("en-US")} entries</span>
+        <Link href={`/draw/?id=${draw.id}`} className="inline-flex items-center gap-1 font-medium text-ink underline-offset-4 hover:underline">
+          Verify this draw <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </div>
   );
 }

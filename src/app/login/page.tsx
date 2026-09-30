@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { MailCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
-import { BASE_PATH } from "@/lib/config";
+import { BASE_PATH, LOCAL_DEV } from "@/lib/config";
+import { localSignIn } from "@/lib/local-dev";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,6 +26,15 @@ export default function LoginPage() {
     if (!db) return;
     setBusy(true);
     setError(null);
+    if (LOCAL_DEV) {
+      try {
+        await localSignIn(email);
+      } catch (err) {
+        setError((err as Error).message);
+        setBusy(false);
+      }
+      return;
+    }
     const { error } = await db.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: `${window.location.origin}${BASE_PATH}/auth/callback/` },
@@ -37,7 +47,11 @@ export default function LoginPage() {
   return (
     <div className="container max-w-md py-16">
       <h1 className="text-3xl font-semibold tracking-tight">Sign in to enter</h1>
-      <p className="mt-2 text-muted">We&apos;ll email you a sign-in link. No password, and it&apos;s always free.</p>
+      <p className="mt-2 text-muted">
+        {LOCAL_DEV
+          ? "Local mode: any email signs you in instantly. Use admin@example.com to see the admin page."
+          : "We'll email you a sign-in link. No password, and it's always free."}
+      </p>
       <div className="mt-8">
         {demo ? (
           <p className="card p-4 text-sm text-muted">Sign-in is off in demo mode. Add your Supabase keys to enable it.</p>
@@ -67,7 +81,7 @@ export default function LoginPage() {
               />
             </div>
             <button type="submit" className="btn-dark w-full" disabled={busy}>
-              {busy ? "Sending…" : "Email me a sign-in link"}
+              {busy ? "Signing in…" : LOCAL_DEV ? "Sign in" : "Email me a sign-in link"}
             </button>
             {error && <p className="text-sm text-bad">{error}</p>}
           </form>

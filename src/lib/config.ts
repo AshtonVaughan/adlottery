@@ -22,3 +22,6 @@ export const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT || "";
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 export const DEMO = !SUPABASE_URL || !SUPABASE_ANON_KEY;
+
+/** `npm run local`: instant sign-in and "draw now", backed by scripts/local-backend.ts. */
+export const LOCAL_DEV = process.env.NEXT_PUBLIC_LOCAL_DEV === "1";

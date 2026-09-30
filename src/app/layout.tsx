@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { DemoBanner } from "@/components/demo-banner";
-import { ADSENSE_CLIENT, APP_NAME, APP_URL, DEMO } from "@/lib/config";
+import { ADSENSE_CLIENT, APP_NAME, APP_URL, DEMO, LOCAL_DEV } from "@/lib/config";
 
 const description =
   "One free weekly draw. Sponsors and ads fill the pot, one person wins it every Monday, and anyone can verify the draw.";
@@ -33,6 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <SiteHeader />
           {DEMO && <DemoBanner />}
+          {LOCAL_DEV && (
+            <div className="border-b border-line bg-surface">
+              <p className="container py-2.5 text-center text-sm text-muted">
+                <span className="font-semibold text-ink">Local mode.</span> Data lives in .local-db/ on this computer.
+              </p>
+            </div>
+          )}
           <main className="flex-1">{children}</main>
           <SiteFooter />
         </AuthProvider>

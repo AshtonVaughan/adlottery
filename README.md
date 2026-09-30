@@ -48,6 +48,21 @@ Without the Supabase variables, the site deploys in **demo mode** with sample da
 - GitHub pauses scheduled workflows after 60 days with no repo activity. Re-enable "Draw lifecycle" in the Actions tab if that happens.
 - The hourly job also keeps a free Supabase project from pausing.
 
+## Run it all locally
+
+No accounts or keys needed. One command runs the site plus a real local database:
+
+```bash
+npm install
+npm run local        # then open http://localhost:3000
+```
+
+- **Sign-in is instant:** any email works, with no email sent. Use `admin@example.com` to get the admin page.
+- **Admin page:** add sponsor money and ad revenue and set a sponsor. In local mode it also has a **Draw now** button that ends the week immediately and picks the winner with a live drand round, so you can play through a whole week in a minute.
+- **Data** is kept in `.local-db/`. Delete that folder to start over.
+
+This runs `scripts/local-backend.ts`, which serves the real migration from PGlite (Postgres in WebAssembly) behind a Supabase-shaped API. It skips authentication, so it's for your own machine only.
+
 ## Develop
 
 ```bash
@@ -62,8 +77,6 @@ npm run typecheck && npm run lint && npm test
 - nobody else can call the internal functions;
 - entering, profiles, claims and admin actions follow the rules;
 - the full weekly cycle works, including a draw with more than 1,000 entries.
-
-`tests/e2e-stub-server.ts` serves the same database over a PostgREST-shaped HTTP API for browser testing. It skips authentication, so it's for local testing only.
 
 ## Code map
 

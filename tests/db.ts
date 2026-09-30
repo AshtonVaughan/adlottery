@@ -25,10 +25,18 @@ const GRANTS = `
 `;
 
 export async function freshDb(): Promise<TestDb> {
-  const pg = new PGlite();
-  await pg.exec(SUPABASE_STUB);
-  await pg.exec(readFileSync(path.resolve("supabase/migrations/0001_schema.sql"), "utf8"));
-  await pg.exec(GRANTS);
+  return openDb();
+}
+
+/** In-memory by default; pass a directory to persist between runs. */
+export async function openDb(dataDir?: string): Promise<TestDb> {
+  const pg = new PGlite(dataDir);
+  const { rows } = await pg.query<{ ready: boolean }>("select to_regclass('public.draws') is not null as ready");
+  if (!rows[0].ready) {
+    await pg.exec(SUPABASE_STUB);
+    await pg.exec(readFileSync(path.resolve("supabase/migrations/0001_schema.sql"), "utf8"));
+    await pg.exec(GRANTS);
+  }
   return new TestDb(pg);
 }
 

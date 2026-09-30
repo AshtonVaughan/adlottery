@@ -84,15 +84,15 @@ export default function HomePage() {
             <h2 className="text-2xl font-semibold tracking-tight">Where the money comes from</h2>
             <div className="mt-4 space-y-3 text-muted">
               <p>
-                <span className="font-medium text-ink">Sponsors</span> pay to put their name on a week, and their
+                <span className="font-medium text-ink">Sponsors</span>{" "}pay to put their name on a week, and their
                 money goes straight into that week&apos;s pot.
               </p>
               <p>
-                <span className="font-medium text-ink">Ads</span> on this site earn revenue, and {AD_SHARE_PERCENT}% of
+                <span className="font-medium text-ink">Ads</span>{" "}on this site earn revenue, and {AD_SHARE_PERCENT}% of
                 it goes into the pot. The rest keeps the lights on.
               </p>
               <p>
-                <span className="font-medium text-ink">Unclaimed prizes</span> roll over. A winner has{" "}
+                <span className="font-medium text-ink">Unclaimed prizes</span>{" "}roll over. A winner has{" "}
                 {CLAIM_WINDOW_DAYS} days to claim; after that, the money goes into the next pot.
               </p>
             </div>

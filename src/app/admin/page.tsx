@@ -12,7 +12,8 @@ import {
   adminSetSponsor,
   adminUpdateWinner,
 } from "@/lib/queries";
-import { AD_SHARE_PERCENT } from "@/lib/config";
+import { AD_SHARE_PERCENT, LOCAL_DEV } from "@/lib/config";
+import { localDrawNow } from "@/lib/local-dev";
 import { countryName } from "@/lib/countries";
 import { weekLabel } from "@/lib/week";
 import { formatMoney, formatUtc } from "@/lib/utils";
@@ -44,6 +45,8 @@ function Admin() {
           {sponsor && <> · sponsor: {sponsor.name}</>}
         </p>
       </div>
+
+      {LOCAL_DEV && <DrawNow onDone={reload} />}
 
       <section className="card p-6">
         <p className="eyebrow">Pot</p>
@@ -231,5 +234,35 @@ function BanForm() {
       </div>
       {note}
     </div>
+  );
+}
+
+function DrawNow({ onDone }: { onDone: () => Promise<void> }) {
+  const { busy, run, note } = useAction();
+  return (
+    <section className="card flex flex-col gap-3 border-dashed p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 className="font-semibold">Local mode: skip to Monday</h2>
+        <p className="mt-1 text-sm text-muted">
+          Closes this week&apos;s draw now and picks the winner with a live drand round. A new week opens straight away.
+        </p>
+      </div>
+      <div className="space-y-2 sm:text-right">
+        <button
+          className="btn-primary"
+          disabled={busy}
+          onClick={async () => {
+            let msg = "";
+            if (await run(async () => (msg = await localDrawNow()), "Drawn.")) {
+              await onDone();
+              alert(msg);
+            }
+          }}
+        >
+          {busy ? "Drawing…" : "Draw now"}
+        </button>
+        {note}
+      </div>
+    </section>
   );
 }

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lifecycle": "tsx scripts/lifecycle.ts"
+    "lifecycle": "tsx scripts/lifecycle.ts",
+    "local": "node scripts/local.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.46.1",

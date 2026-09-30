@@ -100,6 +100,8 @@ export interface Draw {
   public_seed: string | null;
   public_seed_hash: string | null;
   randomness_source: string | null;
+  randomness_round: number | null;
+  seed_committed_at: string | null;
   winning_entry_id: string | null;
   sponsor_name: string | null;
   sponsor_url: string | null;

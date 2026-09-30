@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 import { requireAdminApi } from "@/lib/admin-guard";
+import { commitDrawRandomness } from "@/lib/draw";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,6 +25,13 @@ export async function POST(_request: NextRequest, ctx: RouteParams) {
       { error: "Only active draws can be locked." },
       { status: 400 },
     );
+  }
+
+  // Draws activated before commitments existed get one now; the seed is
+  // secret and the beacon round is still in the future, so it stays fair.
+  const commitment = await commitDrawRandomness(draw);
+  if (!commitment.ok) {
+    return NextResponse.json({ error: commitment.reason }, { status: 500 });
   }
 
   const { error } = await admin.from("draws").update({ status: "locked" }).eq("id", id);

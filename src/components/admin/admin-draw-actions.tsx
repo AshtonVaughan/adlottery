@@ -4,10 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Draw } from "@/lib/types";
+import { drandRoundTime } from "@/lib/drand";
 
 interface Props {
   draw: Draw;
@@ -19,8 +18,6 @@ export function AdminDrawActions({ draw, hasEntries }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [publicSeed, setPublicSeed] = useState("");
-  const [randomnessSource, setRandomnessSource] = useState("");
   const [cancelReason, setCancelReason] = useState("");
 
   async function call(path: string, body: object = {}, name: string) {
@@ -80,37 +77,16 @@ export function AdminDrawActions({ draw, hasEntries }: Props) {
           <div className="space-y-3 rounded-md border border-border/60 p-3">
             <p className="text-sm font-semibold">Run draw</p>
             <p className="text-xs text-muted-foreground">
-              Provide a public seed (e.g. tomorrow&apos;s sports headline, a public
-              tweet id) and a randomness source (e.g. a future block hash you
-              committed to). The system computes the winner deterministically.
+              The winner is computed from the seed committed at activation and
+              drand round {draw.randomness_round ?? "—"}
+              {draw.randomness_round
+                ? ` (available ${drandRoundTime(draw.randomness_round).toLocaleString()})`
+                : ""}
+              . Nothing is entered here, so the result can&apos;t be steered.
             </p>
-            <div className="space-y-1">
-              <Label htmlFor="seed">Public seed</Label>
-              <Input
-                id="seed"
-                placeholder="e.g. weekly-draw-2026-05-21"
-                value={publicSeed}
-                onChange={(e) => setPublicSeed(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="rand">Randomness source</Label>
-              <Input
-                id="rand"
-                placeholder="e.g. btc:block:000...abc"
-                value={randomnessSource}
-                onChange={(e) => setRandomnessSource(e.target.value)}
-              />
-            </div>
             <Button
-              disabled={busy !== null || !publicSeed || !randomnessSource || !hasEntries}
-              onClick={() =>
-                call(
-                  `/api/admin/draws/${draw.id}/run`,
-                  { public_seed: publicSeed, randomness_source: randomnessSource },
-                  "run",
-                )
-              }
+              disabled={busy !== null || !hasEntries || !draw.randomness_round}
+              onClick={() => call(`/api/admin/draws/${draw.id}/run`, {}, "run")}
             >
               {busy === "run" ? "Drawing…" : "Run draw"}
             </Button>

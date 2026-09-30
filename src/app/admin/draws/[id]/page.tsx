@@ -145,6 +145,10 @@ export default async function AdminDrawDetailPage({ params }: PageProps) {
               <span className="break-all">{draw.public_seed_hash}</span>
             </p>
             <p>
+              <span className="text-muted-foreground">randomness_round: </span>
+              {draw.randomness_round ?? "—"}
+            </p>
+            <p>
               <span className="text-muted-foreground">randomness_source: </span>
               <span className="break-all">{draw.randomness_source}</span>
             </p>

@@ -97,18 +97,21 @@ export default function DrawRulesPage() {
 
       <h2>5. Winner selection method</h2>
       <p>
-        Once a draw is locked we record a <em>public seed</em> (for example a
-        future scheduled headline or a public message we publish in advance)
-        and a <em>randomness source</em> (for example a future Bitcoin block
-        hash or a randomness-beacon round) that we cannot manipulate after
-        the fact. We then sort all valid entries by{" "}
-        <code>created_at</code> then by entry id and compute:
+        When a draw is activated, before any entry exists, the server
+        generates a secret random <em>seed</em> and publishes its SHA-256
+        hash. At the same time we publish a <em>drand</em> randomness-beacon
+        round (League of Entropy, quicknet chain) scheduled shortly after
+        entries close. Nobody, including us, can know that round&apos;s
+        value in advance. Once the round is released we sort all valid
+        entries by <code>created_at</code> then by entry id and compute:
       </p>
-      <pre><code>winner_index = sha256(public_seed + randomness_source) mod total_entries</code></pre>
+      <pre><code>winner_index = sha256(public_seed + &quot;|&quot; + randomness) mod total_entries</code></pre>
       <p>
-        We publish the seed, its SHA-256 hash, the randomness source, the
-        total entry count, and a partial mask of the winning entry id in the
-        public archive. Anyone can re-run the math and verify the result.
+        We then reveal the seed alongside its pre-published hash, the beacon
+        round and output, the total entry count, and a partial mask of the
+        winning entry id in the public archive. Anyone can confirm the seed
+        matches its hash, fetch the beacon round from drand, and re-run the
+        math.
       </p>
 
       <h2>6. Reruns &amp; cancellations</h2>

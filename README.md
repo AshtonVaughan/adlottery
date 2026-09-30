@@ -29,7 +29,7 @@ prize pools are funded by the platform, sponsors, and (later) advertising.
 - Fraud-flag heuristic (device-hash velocity); flags queue for manual review, no auto-ban
 - Email-template module wired through the central brand constant so future Resend integration plugs in
 - Premium dark-first responsive UI built on Geist Sans, shadcn-style primitives, and a refined color system (no casino visuals)
-- 37 unit tests covering eligibility, deterministic draw, validation, referral, skill-question, self-referral, and daily-entry uniqueness
+- 47 unit tests covering eligibility, deterministic draw, validation, referral, skill-question, self-referral, and daily-entry uniqueness
 
 ## V1 intentionally does **not** do
 
@@ -83,8 +83,8 @@ npm run test
 ## Configure Supabase
 
 1. Create a new project at https://supabase.com.
-2. Run the SQL in `supabase/migrations/0001_init.sql` and
-   `supabase/migrations/0002_rls.sql` in the SQL editor (in that order). If you
+2. Run the SQL in `supabase/migrations/0001_init.sql`,
+   `0002_rls.sql` and `0003_draw_commitment.sql` in the SQL editor (in that order). If you
    have the Supabase CLI:
 
    ```bash
@@ -180,24 +180,30 @@ India (skill-based), MENA (AE restricted; SA, KW, IR blocked).
 
 1. Admin creates a draft draw (title, type, prize, currency, eligible
    countries, window).
-2. Admin activates it — entries can now be claimed.
+2. Admin activates it. The server generates a secret 32-byte seed
+   (stored in `draw_seed_secrets`, service-role only) and publishes
+   `public_seed_hash = sha256(seed)` plus a future **drand quicknet round**
+   (`randomness_round`) released ~60s after `ends_at`. Entries can now be
+   claimed. Draws activated before this existed get their commitment on lock.
 3. At the end of the window, admin locks the draw (no more entries accepted).
-4. Admin enters a **public seed** (e.g. a future sports headline, public tweet
-   id) and a **randomness source** (e.g. a future block hash committed to in
-   advance).
-5. The server sorts all entries by `(created_at, id)` and computes:
+4. Once the beacon round is released, admin clicks **Run draw** — no input.
+   The server fetches the round from drand (checking
+   `randomness = sha256(signature)`), loads **all** entries in pages of
+   1000 sorted by `(created_at, id)`, and computes:
 
    ```
-   winner_index = sha256(public_seed + randomness_source) mod total_entries
+   winner_index = sha256(seed + "|" + drand_randomness) mod total_entries
    ```
 
-6. The winning entry id, seed, seed hash, randomness source, and total entries
-   are stored on the draw and surfaced in the public archive so anyone can
-   verify the result.
-7. A `winner_claims` row is created. If the winner's jurisdiction requires a
+5. The seed is revealed. Seed, hash, beacon round, randomness, winning entry
+   and total entries are surfaced in the public archive so anyone can verify
+   the seed matches its pre-published hash and re-run the math.
+6. A `winner_claims` row is created. If the winner's jurisdiction requires a
    skill question, claim status starts at `skill_question_required`;
    otherwise it starts at `verification_required`.
-8. Admin publishes the result.
+
+Neither the operator (seed fixed before entries, hash public) nor the
+beacon (value unknown until after entries close) can choose the winner.
 
 Every step is recorded in `audit_logs`.
 
@@ -297,8 +303,9 @@ you can prompt re-acceptance after a bump.
 - Replace placeholder Turnstile / Resend / Stripe Identity integrations with
   configured production credentials.
 - Replace the in-process rate limiter with a durable store (Upstash/Redis).
-- Connect a real randomness source you can publicly commit to (e.g.
-  drand.love, future-Bitcoin-block commitments, NIST randomness beacon).
+- Optionally verify drand BLS signatures server-side (today only
+  `randomness = sha256(signature)` is checked; the round is public so anyone
+  can verify fully).
 - Replace the static skill question with a per-region pool.
 - Wire up email notifications (Resend) for: winner-claim, claim-status
   changes, payout updates, waitlist invites.

@@ -205,9 +205,9 @@ export default async function HomePage() {
               Anyone can audit the draw.
             </h2>
             <p className="text-muted-foreground">
-              Once a draw closes, we publish the seed, its SHA-256 hash, the
-              randomness source we committed to in advance, and the total entry
-              count. The winning entry index is a deterministic function of
+              Before entries open, we publish the hash of a secret seed and a
+              future drand beacon round. After the draw we reveal the seed,
+              the beacon output, and the total entry count. The winning entry index is a deterministic function of
               those public values — no hidden picks, no silent reruns.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -231,10 +231,10 @@ export default async function HomePage() {
                 <pre className="overflow-x-auto whitespace-pre-wrap break-words text-foreground/90">
 {`draw_id           = 7bea…c2a0
 total_entries     = 14,832
-public_seed       = "weekly-draw-2026-05-21"
-public_seed_hash  = sha256(seed) = 9f0d…b1c7
-randomness_source = bitcoin:block:000…abc
-winner_index      = sha256(seed + source) % total_entries
+public_seed       = 3c7e…a412                (revealed at draw)
+public_seed_hash  = sha256(seed) = 9f0d…b1c7   (published at open)
+randomness        = drand quicknet #14,203,118 = 4e1a…90fd
+winner_index      = sha256(seed | randomness) % total_entries
                   = 9_241
 status            = drawn · published`}
                 </pre>

@@ -59,11 +59,6 @@ export const createDrawSchema = z.object({
   sponsor_url: z.string().url().optional().nullable(),
 });
 
-export const runDrawSchema = z.object({
-  public_seed: z.string().min(8).max(256),
-  randomness_source: z.string().min(4).max(256),
-});
-
 export const updateJurisdictionSchema = z.object({
   status: z.enum(["open", "restricted", "waitlist", "blocked"]),
   min_age: z.coerce.number().int().min(13).max(99),
@@ -105,4 +100,3 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type WaitlistInput = z.infer<typeof waitlistSchema>;
 export type ClaimEntryInput = z.infer<typeof claimEntrySchema>;
 export type CreateDrawInput = z.infer<typeof createDrawSchema>;
-export type RunDrawInput = z.infer<typeof runDrawSchema>;

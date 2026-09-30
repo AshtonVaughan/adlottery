@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDateTime, maskEntryId } from "@/lib/utils";
+import { drandRoundUrl } from "@/lib/drand";
 import type { Draw, Jurisdiction, WinnerClaim } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -103,8 +104,22 @@ export default async function DrawResultPage({ params }: PageProps) {
           <Row label="Seed hash">
             <Mono className="text-xs">{draw.public_seed_hash ?? "—"}</Mono>
           </Row>
+          <Row label="Beacon round">
+            {draw.randomness_round ? (
+              <a
+                href={drandRoundUrl(draw.randomness_round)}
+                className="font-mono text-foreground/90 underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                drand quicknet #{draw.randomness_round}
+              </a>
+            ) : (
+              <Mono>—</Mono>
+            )}
+          </Row>
           <Row label="Randomness">
-            <Mono>{draw.randomness_source ?? "—"}</Mono>
+            <Mono className="break-all text-xs">{draw.randomness_source ?? "—"}</Mono>
           </Row>
           <Row label="Winning entry">
             <Mono>
@@ -114,9 +129,11 @@ export default async function DrawResultPage({ params }: PageProps) {
           <p className="pt-2 text-xs text-muted-foreground">
             <span className="text-foreground/80">winner_index</span> ={" "}
             <span className="font-mono">
-              sha256(public_seed + randomness_source) mod total_entries
+              sha256(public_seed + &quot;|&quot; + randomness) mod total_entries
             </span>
-            . Entries are ordered by created_at then id.
+            . Entries are ordered by created_at then id. Check that
+            sha256(public_seed) equals the seed hash published before the
+            draw, and that randomness matches the drand round.
           </p>
         </Section>
 

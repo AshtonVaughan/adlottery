@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 /**
  * Server-side helpers. We never store raw IPs; only stable hashes
@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 
 const SALT = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "dev-only-salt";
 
-export function sha256Hex(input: string): string {
+export function sha256Hex(input: string | Buffer): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
@@ -39,4 +39,8 @@ export function deterministicWinnerIndex(
 
 export function seedHash(seed: string): string {
   return sha256Hex(seed);
+}
+
+export function generateSecretSeed(): string {
+  return randomBytes(32).toString("hex");
 }

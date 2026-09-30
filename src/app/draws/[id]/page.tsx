@@ -10,6 +10,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/lib/auth";
 import { canEnterDraw } from "@/lib/jurisdictions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { drandRoundTime, drandRoundUrl } from "@/lib/drand";
 import type { Draw, Jurisdiction } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -186,11 +187,35 @@ export default async function DrawDetailPage({ params }: PageProps) {
             Fairness method
           </p>
           <pre className="overflow-x-auto rounded-md border border-white/[0.06] bg-white/[0.02] p-4 font-mono text-xs leading-relaxed text-foreground/90">
-{`winner_index = sha256(public_seed + randomness_source) mod total_entries`}
+{`winner_index = sha256(public_seed + "|" + randomness) mod total_entries`}
           </pre>
+          {draw.public_seed_hash && draw.randomness_round && (
+            <div className="space-y-1 font-mono text-xs">
+              <p className="break-all">
+                <span className="text-muted-foreground">committed seed hash: </span>
+                {draw.public_seed_hash}
+              </p>
+              <p>
+                <span className="text-muted-foreground">randomness: </span>
+                <a
+                  href={drandRoundUrl(draw.randomness_round)}
+                  className="underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  drand quicknet round {draw.randomness_round}
+                </a>{" "}
+                <span className="text-muted-foreground">
+                  (released {formatDateTime(drandRoundTime(draw.randomness_round).toISOString())})
+                </span>
+              </p>
+            </div>
+          )}
           <p className="text-muted-foreground">
-            Entries are ordered by created_at then id. After the draw closes
-            we publish the seed, hash, and randomness source in the{" "}
+            The seed hash and beacon round above are fixed before entries
+            close, so the winner can&apos;t be chosen after the fact. Entries
+            are ordered by created_at then id. After the draw we reveal the
+            seed and beacon output in the{" "}
             <Link
               href="/archive"
               className="text-foreground underline-offset-2 hover:underline"

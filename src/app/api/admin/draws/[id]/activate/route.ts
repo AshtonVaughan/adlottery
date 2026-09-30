@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 import { requireAdminApi } from "@/lib/admin-guard";
+import { commitDrawRandomness } from "@/lib/draw";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,6 +25,12 @@ export async function POST(_request: NextRequest, ctx: RouteParams) {
       { error: "Only draft draws can be activated." },
       { status: 400 },
     );
+  }
+
+  // Commit to the seed hash + beacon round before any entry exists.
+  const commitment = await commitDrawRandomness(draw);
+  if (!commitment.ok) {
+    return NextResponse.json({ error: commitment.reason }, { status: 500 });
   }
 
   const { error } = await admin.from("draws").update({ status: "active" }).eq("id", id);

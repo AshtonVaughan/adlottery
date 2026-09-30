@@ -2,97 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    /* surfaces */
-    --background: 240 6% 6%;
-    --foreground: 0 0% 98%;
-
-    --card: 240 6% 8%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 240 6% 8%;
-    --popover-foreground: 0 0% 98%;
-
-    /* brand */
-    --primary: 152 76% 56%;
-    --primary-foreground: 152 86% 8%;
-
-    --secondary: 240 5% 12%;
-    --secondary-foreground: 0 0% 96%;
-
-    --muted: 240 5% 11%;
-    --muted-foreground: 240 5% 62%;
-
-    --accent: 240 5% 14%;
-    --accent-foreground: 0 0% 96%;
-
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 98%;
-
-    --success: 152 70% 50%;
-    --success-foreground: 0 0% 98%;
-
-    /* borders / rings */
-    --border: 240 5% 14%;
-    --input: 240 5% 14%;
-    --ring: 152 76% 56%;
-
-    --radius: 0.75rem;
-  }
-
-  * {
-    @apply border-border;
-  }
-
-  html, body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  body {
-    min-height: 100dvh;
-    background-image:
-      radial-gradient(circle at 10% -20%, hsl(152 60% 22% / 0.18), transparent 40%),
-      radial-gradient(circle at 95% -10%, hsl(220 70% 28% / 0.12), transparent 45%);
-    background-attachment: fixed;
-  }
-
-  h1, h2, h3, h4 {
-    letter-spacing: -0.01em;
-  }
-  h1 { letter-spacing: -0.025em; }
-  h2 { letter-spacing: -0.02em; }
+:root {
+  --bg: 246 244 238;
+  --surface: 255 255 255;
+  --ink: 23 22 18;
+  --muted: 105 101 90;
+  --line: 226 222 211;
+  --accent: 255 204 0;
+  --accent-ink: 23 22 18;
+  --sponsor: 23 22 18;
+  --ads: 235 150 20;
+  --rollover: 60 120 200;
+  --good: 22 122 77;
+  --bad: 190 48 38;
+  color-scheme: light;
 }
 
-@layer utilities {
-  /* Subtle dotted-grid overlay used on hero sections. */
-  .bg-dot-grid {
-    background-image:
-      radial-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px);
-    background-size: 20px 20px;
-    background-position: -1px -1px;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: 17 16 14;
+    --surface: 27 26 23;
+    --ink: 244 241 232;
+    --muted: 160 155 142;
+    --line: 48 46 41;
+    --accent: 255 208 36;
+    --accent-ink: 23 22 18;
+    --sponsor: 244 241 232;
+    --ads: 245 165 45;
+    --rollover: 110 165 240;
+    --good: 80 200 135;
+    --bad: 240 105 95;
+    color-scheme: dark;
   }
-  /* Soft gradient backing for hero cards / focal stats. */
-  .bg-focal {
-    background:
-      linear-gradient(180deg, hsl(var(--card)) 0%, hsl(240 6% 7%) 100%);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
   }
-  /* Hairline divider that doesn't shout. */
-  .hairline {
-    border-color: hsl(var(--foreground) / 0.08);
+  body {
+    @apply bg-bg text-ink antialiased;
   }
-  /* Animated gradient text for the prize amount. */
-  .text-glow-primary {
-    background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(152 86% 70%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  ::selection {
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
   }
-  /* Number stat — tabular figures + tight tracking. */
-  .stat {
+  :focus-visible {
+    outline: 2px solid rgb(var(--ink));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .num {
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
+  }
+
+  .btn {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition
+      active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:brightness-95;
+  }
+  .btn-dark {
+    @apply btn bg-ink text-bg hover:opacity-90;
+  }
+  /* On the yellow ticket: fixed dark-on-yellow in both themes. */
+  .btn-ticket {
+    @apply btn bg-accent-ink text-accent hover:opacity-90;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-surface text-ink hover:border-ink/40;
+  }
+  .btn-lg {
+    @apply h-14 px-7 text-base;
+  }
+
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+
+  .field {
+    @apply h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink
+      placeholder:text-muted focus:border-ink/50 focus:outline-none;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* A ticket: notches cut into both sides with a radial mask. */
+  .ticket {
+    --notch: 14px;
+    -webkit-mask: radial-gradient(circle var(--notch) at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle var(--notch) at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  }
+
+  .prose-rules h2 {
+    @apply mt-10 text-lg font-semibold tracking-tight;
+  }
+  .prose-rules p,
+  .prose-rules li {
+    @apply mt-3 text-[15px] leading-relaxed text-ink/80;
+  }
+  .prose-rules ul {
+    @apply list-disc pl-5;
+  }
+  .prose-rules ol {
+    @apply list-decimal pl-5;
+  }
+  .prose-rules a {
+    @apply underline underline-offset-2;
+  }
+  .prose-rules code {
+    @apply rounded bg-line/60 px-1 py-0.5 font-mono text-[13px];
   }
 }

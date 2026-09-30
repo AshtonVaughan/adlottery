@@ -1,152 +1,109 @@
-import Link from "next/link";
-import { ArrowRight, Plus, ScrollText, ShieldAlert, Trophy } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ensureDrawForWeek } from "@/lib/draw";
+import { getDrawView } from "@/lib/data";
+import { AD_SHARE_PERCENT } from "@/lib/config";
+import { countryName } from "@/lib/countries";
+import { weekLabel } from "@/lib/week";
+import { formatMoney, formatUtc } from "@/lib/utils";
+import { PotBreakdown } from "@/components/pot-breakdown";
+import { BanForm, ContributionForm, LifecycleButton, SponsorForm, WinnerActions } from "./admin-forms";
+import type { Winner } from "@/lib/types";
 
+export const metadata = { title: "Admin" };
 export const dynamic = "force-dynamic";
 
-async function loadStats() {
-  const admin = getSupabaseAdminClient();
-  const [users, drawsActive, openFraud, openClaims, entriesToday] = await Promise.all([
-    admin.from("profiles").select("id", { head: true, count: "exact" }),
-    admin
-      .from("draws")
-      .select("id", { head: true, count: "exact" })
-      .eq("status", "active"),
-    admin
-      .from("fraud_flags")
-      .select("id", { head: true, count: "exact" })
-      .eq("status", "open"),
-    admin
-      .from("winner_claims")
-      .select("id", { head: true, count: "exact" })
-      .in("claim_status", [
-        "verification_required",
-        "skill_question_required",
-        "pending",
-      ]),
-    admin
-      .from("entries")
-      .select("id", { head: true, count: "exact" })
-      .gte(
-        "created_at",
-        new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      ),
-  ]);
-  return {
-    users: users.count ?? 0,
-    activeDraws: drawsActive.count ?? 0,
-    openFraud: openFraud.count ?? 0,
-    openClaims: openClaims.count ?? 0,
-    entriesToday: entriesToday.count ?? 0,
-  };
-}
+type WinnerRow = Winner & {
+  draws: { week_start: string };
+  profiles: { email: string; display_name: string | null; country_code: string | null } | null;
+};
 
-export default async function AdminOverviewPage() {
-  const stats = await loadStats();
+export default async function AdminPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (!session.isAdmin) redirect("/");
+
+  const draw = await ensureDrawForWeek();
+  const view = (await getDrawView(draw.id))!;
+  const { data } = await getSupabaseAdminClient()
+    .from("winners")
+    .select("*, draws(week_start), profiles(email, display_name, country_code)")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const winners = (data ?? []) as WinnerRow[];
+
   return (
-    <div className="space-y-6">
-      <section className="grid gap-3 md:grid-cols-5">
-        <Stat label="Users" value={stats.users} />
-        <Stat label="Live draws" value={stats.activeDraws} />
-        <Stat label="Entries (24h)" value={stats.entriesToday} />
-        <Stat label="Open claims" value={stats.openClaims} accent="warn" />
-        <Stat label="Fraud queue" value={stats.openFraud} accent="warn" />
+    <div className="container max-w-4xl space-y-6 py-14">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Admin</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{weekLabel(draw.week_start)}</h1>
+          <p className="mt-1 text-sm text-muted">
+            {view.entries.toLocaleString("en-US")} entries · closes {formatUtc(draw.closes_at)}
+            {view.sponsor && <> · sponsor: {view.sponsor.name}</>}
+          </p>
+        </div>
+        <LifecycleButton />
+      </div>
+
+      <section className="card p-6">
+        <p className="eyebrow">Pot</p>
+        <p className="num mt-2 text-4xl font-semibold tracking-tight">{formatMoney(view.pot.total, draw.currency, true)}</p>
+        <div className="mt-4">
+          <PotBreakdown pot={view.pot} currency={draw.currency} />
+        </div>
       </section>
 
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              Quick actions
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <ActionCard
-              icon={Plus}
-              label="Create draw"
-              href="/admin/draws/new"
-              copy="Set up a draft, then activate when you're ready."
-            />
-            <ActionCard
-              icon={Trophy}
-              label="Review claims"
-              href="/admin/claims"
-              copy="Approve verification, mark payouts paid."
-            />
-            <ActionCard
-              icon={ShieldAlert}
-              label="Fraud queue"
-              href="/admin/fraud"
-              copy="Confirm or dismiss flagged accounts."
-            />
-            <ActionCard
-              icon={ScrollText}
-              label="Audit log"
-              href="/admin/audit"
-              copy="Every privileged action, in order."
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent?: "warn";
-}) {
-  return (
-    <Card>
-      <CardContent className="space-y-2 p-5">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          {label}
-        </p>
-        <p
-          className={
-            "stat text-3xl font-semibold " +
-            (accent === "warn" && value > 0
-              ? "text-amber-200"
-              : "text-foreground")
-          }
-        >
-          {value.toLocaleString()}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ActionCard({
-  icon: Icon,
-  label,
-  href,
-  copy,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  href: string;
-  copy: string;
-}) {
-  return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-      <div className="flex items-center justify-between">
-        <Icon className="h-4 w-4 text-primary" />
+      <div className="grid gap-6 md:grid-cols-2">
+        <section className="card p-6">
+          <h2 className="font-semibold">Add money to this pot</h2>
+          <p className="mt-1 text-sm text-muted">
+            For ad revenue, enter the gross amount; {AD_SHARE_PERCENT}% goes in.
+          </p>
+          <div className="mt-4"><ContributionForm drawId={draw.id} /></div>
+        </section>
+        <section className="card p-6">
+          <h2 className="font-semibold">This week&apos;s sponsor</h2>
+          <p className="mt-1 text-sm text-muted">Shown on the home page. Add their money separately.</p>
+          <div className="mt-4"><SponsorForm drawId={draw.id} /></div>
+        </section>
       </div>
-      <p className="mt-3 text-sm font-semibold tracking-tight">{label}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{copy}</p>
-      <Button asChild variant="ghost" size="sm" className="mt-3 -ml-3">
-        <Link href={href}>
-          Open <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </Button>
+
+      <section className="card p-6">
+        <h2 className="font-semibold">Winners</h2>
+        {winners.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No winners yet.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {winners.map((w) => (
+              <li key={w.draw_id} className="grid gap-3 py-4 text-sm md:grid-cols-[1fr_auto]">
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {weekLabel(w.draws.week_start)} · <span className="num">{formatMoney(w.amount, w.currency, true)}</span> ·{" "}
+                    <span className="uppercase tracking-wide text-muted">{w.status}</span>
+                  </p>
+                  <p className="text-muted">
+                    {w.profiles
+                      ? `${w.profiles.display_name} · ${w.profiles.email} · ${countryName(w.profiles.country_code ?? "")}`
+                      : "Deleted account"}
+                  </p>
+                  {w.legal_name && <p>Legal name: {w.legal_name}</p>}
+                  {w.payout_details && <p>Pay to: {w.payout_details}</p>}
+                  {w.payout_reference && <p>Reference: {w.payout_reference}</p>}
+                  {w.status === "pending" && <p className="text-muted">Claim deadline {formatUtc(w.claim_deadline)}</p>}
+                </div>
+                <WinnerActions drawId={w.draw_id} status={w.status} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card p-6">
+        <h2 className="font-semibold">Ban or unban an account</h2>
+        <div className="mt-4"><BanForm /></div>
+      </section>
     </div>
   );
 }

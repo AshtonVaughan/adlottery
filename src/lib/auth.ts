@@ -1,43 +1,35 @@
-import { redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { adminEmails, isSupabaseConfigured } from "@/lib/config";
 import type { Profile } from "@/lib/types";
 
-export interface SessionContext {
+export interface Session {
   userId: string;
   email: string;
   profile: Profile;
+  isAdmin: boolean;
 }
 
-export async function getCurrentSession(): Promise<SessionContext | null> {
+export async function getSession(): Promise<Session | null> {
+  if (!isSupabaseConfigured()) return null;
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await getSupabaseAdminClient()
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
-
+    .maybeSingle<Profile>();
   if (!profile) return null;
 
+  const email = (user.email ?? profile.email).toLowerCase();
   return {
     userId: user.id,
-    email: user.email ?? profile.email,
-    profile: profile as Profile,
+    email,
+    profile,
+    isAdmin: profile.is_admin || adminEmails().includes(email),
   };
-}
-
-export async function requireUser(): Promise<SessionContext> {
-  const session = await getCurrentSession();
-  if (!session) redirect("/login");
-  return session;
-}
-
-export async function requireAdmin(): Promise<SessionContext> {
-  const session = await requireUser();
-  if (!session.profile.is_admin) redirect("/dashboard");
-  return session;
 }

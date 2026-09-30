@@ -1,231 +1,162 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Countdown } from "@/components/countdown";
-import { ClaimEntryButton } from "@/components/claim-entry-button";
-import { JurisdictionBadge } from "@/components/jurisdiction-badge";
+import { notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
+import { getContributions, getDrawView } from "@/lib/data";
+import { getSession } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getCurrentSession } from "@/lib/auth";
-import { canEnterDraw } from "@/lib/jurisdictions";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { drandRoundTime, drandRoundUrl } from "@/lib/drand";
-import type { Draw, Jurisdiction } from "@/lib/types";
+import { countryName } from "@/lib/countries";
+import { weekLabel } from "@/lib/week";
+import { formatMoney, formatUtc } from "@/lib/utils";
+import type { Draw } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+const SOURCE_LABEL = { sponsor: "Sponsor", ads: "Ad revenue", rollover: "Rollover" } as const;
+const STATUS_LABEL: Record<Draw["status"], string> = {
+  open: "Open for entries",
+  closed: "Closed, drawing soon",
+  drawn: "Drawn",
+  cancelled: "Cancelled",
+};
 
-export default async function DrawDetailPage({ params }: PageProps) {
+export default async function DrawPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const admin = getSupabaseAdminClient();
-  const { data: draw } = await admin
-    .from("draws")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle<Draw>();
-  if (!draw) notFound();
-
-  const { count: totalEntries } = await admin
-    .from("entries")
-    .select("id", { head: true, count: "exact" })
-    .eq("draw_id", draw.id);
-
-  const session = await getCurrentSession();
-  let canEnter: { ok: true } | { ok: false; reason: string } | null = null;
-  let userEntryCount = 0;
-  let alreadyToday = false;
-  let jurisdiction: Jurisdiction | null = null;
-
-  if (session) {
-    const jr = await admin
-      .from("jurisdictions")
-      .select("*")
-      .eq("country_code", session.profile.country_code)
-      .maybeSingle<Jurisdiction>();
-    jurisdiction = jr.data ?? null;
-    canEnter = canEnterDraw({
-      draw,
-      jurisdiction,
-      profile: session.profile,
-      entrySource: "daily_free_entry",
-    });
-
-    const { count } = await admin
-      .from("entries")
-      .select("id", { head: true, count: "exact" })
-      .eq("draw_id", draw.id)
-      .eq("user_id", session.userId);
-    userEntryCount = count ?? 0;
-
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: existing } = await admin
-      .from("daily_entry_claims")
-      .select("id")
-      .eq("user_id", session.userId)
-      .eq("draw_id", draw.id)
-      .eq("claim_date", today)
-      .maybeSingle();
-    alreadyToday = !!existing;
-  }
+  const view = await getDrawView(id);
+  if (!view) notFound();
+  const { draw, pot, winner, entries } = view;
+  const contributions = await getContributions(draw.id, pot);
+  const myEntries = await getMyEntryIds(draw.id);
+  const drawn = draw.status === "drawn";
 
   return (
-    <div className="container max-w-5xl py-16">
-      <div className="space-y-2">
-        <Link
-          href="/draws"
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← All active draws
-        </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <Badge variant={draw.status === "active" ? "success" : "default"}>
-              {draw.status === "active" ? "Live" : draw.status}
-            </Badge>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-              {draw.title}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {draw.draw_type.replace(/_/g, " ")} ·{" "}
-              {draw.eligible_country_codes.length}{" "}
-              eligible countries
-            </p>
-          </div>
-          {jurisdiction && (
-            <JurisdictionBadge status={jurisdiction.status} />
+    <div className="container max-w-4xl py-14">
+      <p className="eyebrow">
+        {weekLabel(draw.week_start)} · {STATUS_LABEL[draw.status]}
+      </p>
+      <h1 className="num mt-3 text-6xl font-semibold tracking-tightest sm:text-7xl">
+        {formatMoney(drawn ? draw.prize_amount ?? 0 : pot.total, draw.currency, true)}
+      </h1>
+      <p className="mt-3 text-muted">
+        {drawn
+          ? winner
+            ? <>Won by <span className="font-medium text-ink">{winner.name}</span>{winner.country && ` from ${countryName(winner.country)}`}.</>
+            : "No entries this week, so the pot rolled over."
+          : `${entries.toLocaleString("en-US")} entries so far. Closes ${formatUtc(draw.closes_at)}.`}
+      </p>
+
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        <section className="card p-6">
+          <h2 className="font-semibold">Pot ledger</h2>
+          <p className="mt-1 text-sm text-muted">Every dollar in this week&apos;s pot.</p>
+          {contributions.length === 0 ? (
+            <p className="mt-6 text-sm text-muted">Nothing added yet.</p>
+          ) : (
+            <table className="mt-4 w-full text-sm">
+              <tbody className="divide-y divide-line">
+                {contributions.map((c) => (
+                  <tr key={c.id}>
+                    <td className="py-2.5 pr-3">
+                      <div className="font-medium">{SOURCE_LABEL[c.source]}</div>
+                      {c.note && <div className="text-xs text-muted">{c.note}</div>}
+                    </td>
+                    <td className="num py-2.5 text-right">{formatMoney(Number(c.amount), draw.currency, true)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="pt-3 font-semibold">Total</td>
+                  <td className="num pt-3 text-right font-semibold">{formatMoney(pot.total, draw.currency, true)}</td>
+                </tr>
+              </tbody>
+            </table>
           )}
-        </div>
+        </section>
+
+        <section className="card p-6">
+          <h2 className="font-semibold">Fairness proof</h2>
+          <p className="mt-1 text-sm text-muted">
+            Both of these were published when the draw opened, before anyone entered.
+          </p>
+          <dl className="mt-4 space-y-4 text-sm">
+            <Item label="Secret seed hash">
+              <code className="break-all font-mono text-xs">{draw.seed_hash}</code>
+            </Item>
+            <Item label="Public random number">
+              <a href={drandRoundUrl(draw.randomness_round)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-2">
+                drand round {draw.randomness_round.toLocaleString("en-US")} <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <span className="text-muted"> · released {formatUtc(drandRoundTime(draw.randomness_round))}</span>
+            </Item>
+            {drawn && (
+              <>
+                <Item label="Revealed seed">
+                  <code className="break-all font-mono text-xs">{draw.seed}</code>
+                </Item>
+                <Item label="Random number (drand output)">
+                  <code className="break-all font-mono text-xs">{draw.randomness}</code>
+                </Item>
+                <Item label="Result">
+                  Entry <span className="num font-medium">#{draw.winner_index}</span> of{" "}
+                  <span className="num">{draw.total_entries?.toLocaleString("en-US")}</span> (counting from 0) ·{" "}
+                  <a href={`/draws/${draw.id}/entries.txt`} className="underline underline-offset-2">entry list</a>
+                </Item>
+              </>
+            )}
+          </dl>
+        </section>
       </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card className="bg-focal shadow-focal">
-          <CardContent className="space-y-6 p-8">
-            <div>
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                Prize pool
-              </p>
-              <p className="stat mt-1 text-5xl font-semibold text-glow-primary md:text-6xl">
-                {formatCurrency(Number(draw.prize_amount), draw.currency)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Funded by the platform &amp; sponsors · No purchase required
-              </p>
-            </div>
-            {draw.status === "active" && (
-              <Countdown to={draw.ends_at} size="lg" />
-            )}
-            <div className="grid grid-cols-2 gap-6 border-t border-white/[0.05] pt-5">
-              <div>
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Total entries
-                </p>
-                <p className="stat mt-1 text-2xl font-medium">
-                  {(totalEntries ?? 0).toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Your entries
-                </p>
-                <p className="stat mt-1 text-2xl font-medium">
-                  {session ? userEntryCount : "—"}
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Starts {formatDateTime(draw.starts_at)} · Ends{" "}
-              {formatDateTime(draw.ends_at)}
-            </p>
-          </CardContent>
-        </Card>
+      {myEntries.length > 0 && (
+        <section className="card mt-6 p-6">
+          <h2 className="font-semibold">Your entries in this draw</h2>
+          <p className="mt-1 text-sm text-muted">Check each one appears in the entry list.</p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {myEntries.map((e) => (
+              <li key={e} className="rounded-lg bg-bg px-2 py-1 font-mono text-xs">{e}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              Claim free entry
-            </p>
-            {!session ? (
-              <div className="space-y-3 text-sm">
-                <p className="text-muted-foreground">
-                  Free account, no payment. We&apos;ll check eligibility for
-                  your country before you can claim.
-                </p>
-                <Button asChild className="w-full">
-                  <Link href="/signup">Create free account</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/login">Log in</Link>
-                </Button>
-              </div>
-            ) : !canEnter ? null : canEnter.ok ? (
-              <ClaimEntryButton
-                drawId={draw.id}
-                disabled={alreadyToday}
-                disabledReason={
-                  alreadyToday ? "You already claimed today. Come back tomorrow." : undefined
-                }
-              />
-            ) : (
-              <ClaimEntryButton drawId={draw.id} disabled disabledReason={canEnter.reason} />
-            )}
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              <li>One daily entry per draw per day</li>
-              <li>Referral bonus on a referred user&apos;s first claim</li>
-              <li>Promo codes when offered</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="mt-6 rounded-2xl bg-ink p-6 text-bg sm:p-8">
+        <h2 className="font-semibold">Check it yourself</h2>
+        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm opacity-80">
+          <li>sha256(seed) must equal the seed hash published at the start.</li>
+          <li>The random number must match drand&apos;s published value for that round.</li>
+          <li>Entries are ordered by entry time, then id. The winner is the entry at this index:</li>
+        </ol>
+        <pre className="mt-4 overflow-x-auto rounded-xl bg-bg/10 p-4 font-mono text-xs leading-relaxed">
+{`const { createHash } = require("node:crypto");
+const seed = "${draw.seed ?? "<revealed after the draw>"}";
+const random = "${draw.randomness ?? "<drand output>"}";
+const total = ${draw.total_entries ?? "<number of entries>"};
 
-      <Card className="mt-6">
-        <CardContent className="space-y-4 p-6 text-sm">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Fairness method
-          </p>
-          <pre className="overflow-x-auto rounded-md border border-white/[0.06] bg-white/[0.02] p-4 font-mono text-xs leading-relaxed text-foreground/90">
-{`winner_index = sha256(public_seed + "|" + randomness) mod total_entries`}
-          </pre>
-          {draw.public_seed_hash && draw.randomness_round && (
-            <div className="space-y-1 font-mono text-xs">
-              <p className="break-all">
-                <span className="text-muted-foreground">committed seed hash: </span>
-                {draw.public_seed_hash}
-              </p>
-              <p>
-                <span className="text-muted-foreground">randomness: </span>
-                <a
-                  href={drandRoundUrl(draw.randomness_round)}
-                  className="underline-offset-2 hover:underline"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  drand quicknet round {draw.randomness_round}
-                </a>{" "}
-                <span className="text-muted-foreground">
-                  (released {formatDateTime(drandRoundTime(draw.randomness_round).toISOString())})
-                </span>
-              </p>
-            </div>
-          )}
-          <p className="text-muted-foreground">
-            The seed hash and beacon round above are fixed before entries
-            close, so the winner can&apos;t be chosen after the fact. Entries
-            are ordered by created_at then id. After the draw we reveal the
-            seed and beacon output in the{" "}
-            <Link
-              href="/archive"
-              className="text-foreground underline-offset-2 hover:underline"
-            >
-              public archive
-            </Link>
-            .
-          </p>
-        </CardContent>
-      </Card>
+createHash("sha256").update(seed).digest("hex") === "${draw.seed_hash.slice(0, 16)}…";
+const h = createHash("sha256").update(seed + "|" + random).digest("hex");
+const index = Number(BigInt("0x" + h.slice(0, 13)) % BigInt(total));`}
+        </pre>
+      </section>
     </div>
   );
+}
+
+function Item({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt>
+      <dd className="mt-1">{children}</dd>
+    </div>
+  );
+}
+
+async function getMyEntryIds(drawId: string): Promise<string[]> {
+  const session = await getSession().catch(() => null);
+  if (!session) return [];
+  const { data } = await getSupabaseAdminClient()
+    .from("entries")
+    .select("id")
+    .eq("draw_id", drawId)
+    .eq("user_id", session.userId)
+    .order("created_at");
+  return (data ?? []).map((e) => e.id);
 }

@@ -1,129 +1,115 @@
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { JurisdictionBadge } from "@/components/jurisdiction-badge";
-import { LogoutButton } from "@/components/logout-button";
-import { ReferralShare } from "@/components/referral-share";
-import { requireUser } from "@/lib/auth";
-import { APP_URL, LEGAL_VERSIONS } from "@/lib/constants";
-import { formatDateTime } from "@/lib/utils";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { getSession } from "@/lib/auth";
+import { ensureDrawForWeek } from "@/lib/draw";
+import { getUserDrawStatus, getUserWinnings } from "@/lib/data";
+import { profileComplete } from "@/lib/eligibility";
+import { countryName, isCountryCode } from "@/lib/countries";
+import { weekLabel } from "@/lib/week";
+import { formatMoney, formatUtc } from "@/lib/utils";
+import { ProfileForm } from "./profile-form";
+import { ClaimForm } from "./claim-form";
+import type { WinnerStatus } from "@/lib/types";
 
+export const metadata = { title: "Your account" };
 export const dynamic = "force-dynamic";
 
+const STATUS_TEXT: Record<WinnerStatus, string> = {
+  pending: "Waiting for your claim",
+  claimed: "Claim received, verifying",
+  verified: "Verified, payment on its way",
+  paid: "Paid",
+  forfeited: "Expired, rolled into a later pot",
+};
+
 export default async function AccountPage() {
-  const { profile } = await requireUser();
-  return (
-    <div className="container max-w-3xl space-y-6 py-12">
-      <header className="space-y-1">
-        <Badge variant="outline">Account</Badge>
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          Your profile
-        </h1>
-      </header>
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const { profile } = session;
 
-      <Section title="Profile">
-        <Row label="Email">{profile.email}</Row>
-        <Row label="Country">{profile.country_code}</Row>
-        <Row label="Region">{profile.region_code.replace(/_/g, " ")}</Row>
-        <Row label="Eligibility">
-          <JurisdictionBadge status={profile.eligibility_status} />
-        </Row>
-        <Row label="Referral code">
-          <code className="font-mono text-foreground">
-            {profile.referral_code}
-          </code>
-        </Row>
-        <Row label="Member since">{formatDateTime(profile.created_at)}</Row>
-      </Section>
-
-      <Section title="Invite friends">
-        <ReferralShare
-          appUrl={APP_URL}
-          referralCode={profile.referral_code}
-        />
-      </Section>
-
-      <Section title="Legal acceptance">
-        <Row label="Terms">
-          v{LEGAL_VERSIONS.terms} ·{" "}
-          {formatDateTime(profile.terms_accepted_at)}
-        </Row>
-        <Row label="Privacy">
-          v{LEGAL_VERSIONS.privacy} ·{" "}
-          {formatDateTime(profile.privacy_accepted_at)}
-        </Row>
-        <Row label="Draw rules">
-          v{LEGAL_VERSIONS.drawRules} ·{" "}
-          {formatDateTime(profile.draw_rules_accepted_at)}
-        </Row>
-        <div className="pt-2 text-xs text-muted-foreground">
-          <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>
-          {" · "}
-          <Link href="/legal/privacy" className="hover:text-foreground">Privacy</Link>
-          {" · "}
-          <Link href="/legal/draw-rules" className="hover:text-foreground">Draw rules</Link>
+  if (!profileComplete(profile)) {
+    const geo = (await headers()).get("x-vercel-ip-country")?.toUpperCase() ?? "";
+    return (
+      <div className="container max-w-lg py-14">
+        <p className="eyebrow">Almost there</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Finish signing up</h1>
+        <p className="mt-2 text-muted">We need this once so we can pay you if you win.</p>
+        <div className="mt-8">
+          <ProfileForm
+            defaultName={profile.display_name ?? ""}
+            defaultCountry={profile.country_code ?? (isCountryCode(geo) ? geo : "")}
+            countryLocked={Boolean(profile.country_code)}
+          />
         </div>
-      </Section>
+      </div>
+    );
+  }
 
-      <Card className="border-destructive/25">
-        <CardContent className="space-y-4 p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-widest text-destructive-foreground/80">
-                Danger zone
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Deletion requests are queued for admin review. Your account
-                will be deactivated immediately so no new entries can be
-                claimed in your name.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <form action="/api/account/delete" method="post">
-              <Button variant="destructive" type="submit">
-                Request account deletion
-              </Button>
-            </form>
-            <LogoutButton />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+  const draw = await ensureDrawForWeek();
+  const [status, winnings] = await Promise.all([
+    getUserDrawStatus(session.userId, draw.id),
+    getUserWinnings(session.userId),
+  ]);
+  const toClaim = winnings.filter((w) => w.status === "pending" && new Date(w.claim_deadline) > new Date());
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
   return (
-    <Card>
-      <CardContent className="space-y-3 p-6">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          {title}
+    <div className="container max-w-2xl space-y-8 py-14">
+      <div>
+        <p className="eyebrow">Your account</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Hi, {profile.display_name}</h1>
+        <p className="mt-1 text-sm text-muted">
+          {session.email} · {countryName(profile.country_code!)}
         </p>
-        <div className="space-y-2 text-sm">{children}</div>
-      </CardContent>
-    </Card>
-  );
-}
+      </div>
 
-function Row({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-3 border-b border-white/[0.04] pb-2 last:border-0 last:pb-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="col-span-2 break-words text-foreground">{children}</span>
+      {toClaim.map((w) => (
+        <div key={w.draw_id} className="ticket rounded-2xl bg-accent p-6 text-accent-ink sm:p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em]">You won · {weekLabel(w.week_start)}</p>
+          <p className="num mt-2 text-5xl font-semibold tracking-tight">{formatMoney(w.amount, w.currency, true)}</p>
+          <p className="mt-2 text-sm opacity-70">Claim by {formatUtc(w.claim_deadline)}.</p>
+          <div className="mt-6">
+            <ClaimForm drawId={w.draw_id} />
+          </div>
+        </div>
+      ))}
+
+      <div className="card p-6">
+        <p className="eyebrow">{weekLabel(draw.week_start)}</p>
+        <p className="mt-2 text-xl font-semibold">
+          <span className="num">{status.entriesThisDraw}</span> of 7 possible entries this week
+        </p>
+        <div className="mt-4 flex gap-1.5" aria-hidden="true">
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={i} className={`h-2 flex-1 rounded-full ${i < status.entriesThisDraw ? "bg-accent" : "bg-line"}`} />
+          ))}
+        </div>
+        <p className="mt-4 text-sm text-muted">
+          {status.enteredToday ? "You've entered today. Come back tomorrow for another." : "You haven't entered today."}{" "}
+          <Link href="/" className="font-medium text-ink underline underline-offset-4">
+            {status.enteredToday ? "See the pot" : "Enter now"}
+          </Link>
+        </p>
+      </div>
+
+      {winnings.length > 0 && (
+        <div className="card p-6">
+          <p className="eyebrow">Your prizes</p>
+          <ul className="mt-3 divide-y divide-line">
+            {winnings.map((w) => (
+              <li key={w.draw_id} className="flex items-center justify-between gap-4 py-3 text-sm">
+                <span>{weekLabel(w.week_start)}</span>
+                <span className="text-muted">{STATUS_TEXT[w.status]}</span>
+                <span className="num font-semibold">{formatMoney(w.amount, w.currency, true)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form action="/auth/signout" method="post">
+        <button className="btn-ghost">Sign out</button>
+      </form>
     </div>
   );
 }

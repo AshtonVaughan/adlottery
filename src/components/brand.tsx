@@ -12,9 +12,9 @@ export function TicketGlyph({ className = "h-5 w-5" }: { className?: string }) {
 
 export function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-      <TicketGlyph className="h-6 w-6" />
-      {APP_NAME}
+    <Link href="/" className="flex items-center gap-2.5">
+      <TicketGlyph className="h-7 w-7" />
+      <span className="font-serif text-[22px] leading-none">{APP_NAME}</span>
     </Link>
   );
 }

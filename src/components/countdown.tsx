@@ -4,38 +4,48 @@ import { useEffect, useState } from "react";
 
 function parts(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
-  return {
-    d: Math.floor(s / 86400),
-    h: Math.floor((s % 86400) / 3600),
-    m: Math.floor((s % 3600) / 60),
-    s: s % 60,
-  };
+  return { d: Math.floor(s / 86400), h: Math.floor((s % 86400) / 3600), m: Math.floor((s % 3600) / 60), s: s % 60 };
 }
 
-export function Countdown({ to }: { to: string }) {
-  const target = new Date(to).getTime();
+function useNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const t = parts(target - now);
+  return now;
+}
+
+export function Countdown({ to }: { to: string }) {
+  const t = parts(new Date(to).getTime() - useNow());
   const cells: [number, string][] = [
     [t.d, "days"],
-    [t.h, "hrs"],
+    [t.h, "hours"],
     [t.m, "min"],
     [t.s, "sec"],
   ];
   return (
-    <div className="grid grid-cols-4 gap-2" role="timer" aria-label="Time until the draw closes">
+    <div className="grid grid-cols-4 divide-x divide-accent-ink/15" role="timer" aria-label="Time until the draw closes">
       {cells.map(([v, label]) => (
-        <div key={label} className="rounded-xl bg-accent-ink/[0.07] px-2 py-2.5 text-center">
-          <div className="num text-2xl font-semibold tracking-tight" suppressHydrationWarning>
+        <div key={label} className="px-1 text-center">
+          <div className="num font-serif text-[40px] leading-none" suppressHydrationWarning>
             {String(v).padStart(2, "0")}
           </div>
-          <div className="text-[11px] font-medium uppercase tracking-wider opacity-60">{label}</div>
+          <div className="mt-1 text-xs opacity-60">{label}</div>
         </div>
       ))}
     </div>
   );
+}
+
+/** "4 days, 9 hours" style, for running text. */
+export function TimeLeft({ to }: { to: string }) {
+  const t = parts(new Date(to).getTime() - useNow());
+  const text =
+    t.d > 0
+      ? `${t.d} ${t.d === 1 ? "day" : "days"}, ${t.h} ${t.h === 1 ? "hour" : "hours"}`
+      : t.h > 0
+        ? `${t.h}h ${t.m}m`
+        : `${t.m}m ${t.s}s`;
+  return <span suppressHydrationWarning>{text}</span>;
 }

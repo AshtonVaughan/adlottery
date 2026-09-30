@@ -39,9 +39,32 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
   }
   body {
     @apply bg-bg text-ink antialiased;
+  }
+  /* Faint paper grain over the whole page. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   ::selection {
     background: rgb(var(--accent));
@@ -91,7 +114,45 @@
     @apply mb-1.5 block text-sm font-medium;
   }
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted;
+    @apply text-sm text-muted;
+  }
+  .display {
+    @apply font-serif font-normal leading-[0.95] tracking-display;
+  }
+
+  /* Scroll reveal (see components/reveal.tsx). */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--delay, 0ms);
+  }
+  .reveal[data-shown="true"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Receipt with a torn zigzag bottom edge. */
+  .receipt {
+    --zig: 10px;
+    -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--zig)) 100%;
+    mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(2 * var(--zig)) 100%;
+    padding-bottom: calc(var(--zig) + 1.5rem);
+  }
+  .leader {
+    @apply flex items-baseline gap-2;
+  }
+  .leader::after {
+    content: "";
+    order: 1;
+    flex: 1;
+    border-bottom: 1px dotted rgb(var(--muted) / 0.5);
+    transform: translateY(-4px);
+  }
+  .leader > :last-child {
+    order: 2;
   }
 
   /* A ticket: notches cut into both sides with a radial mask. */

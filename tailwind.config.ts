@@ -28,9 +28,17 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        serif: ['"Instrument Serif"', "ui-serif", "Georgia", "serif"],
       },
       letterSpacing: {
         tightest: "-0.055em",
+        display: "-0.02em",
+      },
+      keyframes: {
+        marquee: { from: { transform: "translateX(0)" }, to: { transform: "translateX(-50%)" } },
+      },
+      animation: {
+        marquee: "marquee 40s linear infinite",
       },
       borderRadius: {
         xl: "14px",

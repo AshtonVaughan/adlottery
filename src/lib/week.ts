@@ -21,20 +21,21 @@ export function utcDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** ISO-8601 week number. */
-export function isoWeekNumber(date: Date): number {
+/** ISO-8601 week number and week-numbering year. */
+export function isoWeek(date: Date): { week: number; year: number } {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  // The Thursday of this week decides the ISO year.
   d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
-  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-  return (
-    1 +
-    Math.round(
-      ((d.getTime() - firstThursday.getTime()) / DAY_MS - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7,
-    )
-  );
+  const year = d.getUTCFullYear();
+  const jan1 = Date.UTC(year, 0, 1);
+  return { week: 1 + Math.floor((d.getTime() - jan1) / (7 * DAY_MS)), year };
+}
+
+export function isoWeekNumber(date: Date): number {
+  return isoWeek(date).week;
 }
 
 export function weekLabel(weekStart: string): string {
-  const d = new Date(`${weekStart}T00:00:00Z`);
-  return `Week ${isoWeekNumber(d)}, ${d.getUTCFullYear()}`;
+  const { week, year } = isoWeek(new Date(`${weekStart}T00:00:00Z`));
+  return `Week ${week}, ${year}`;
 }

@@ -1,0 +1,45 @@
+# Runs the weekly draw cycle every hour: opens this week's draw, closes
+# last week's, draws the winner from the drand beacon, emails them, and
+# rolls over expired prizes. Safe to run any number of times.
+#
+# Secrets (Settings -> Secrets and variables -> Actions -> Secrets):
+#   SUPABASE_SERVICE_ROLE_KEY   required
+#   ADMIN_EMAILS                comma-separated; these accounts get /admin
+#   RESEND_API_KEY, EMAIL_FROM  optional, for winner emails
+# Variables: SUPABASE_URL (required) plus the same optional ones as the site.
+name: Draw lifecycle
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lifecycle
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lifecycle
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          NEXT_PUBLIC_APP_NAME: ${{ vars.APP_NAME }}
+          NEXT_PUBLIC_APP_URL: https://${{ github.repository_owner }}.github.io
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_CURRENCY: ${{ vars.CURRENCY }}
+          NEXT_PUBLIC_AD_SHARE_PERCENT: ${{ vars.AD_SHARE_PERCENT }}
+          NEXT_PUBLIC_EXCLUDED_COUNTRIES: ${{ vars.EXCLUDED_COUNTRIES }}

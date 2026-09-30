@@ -15,9 +15,9 @@ export function SiteFooter() {
           <p>Not open to residents of {EXCLUDED_COUNTRIES.map(countryName).join(", ")}.</p>
         </div>
         <nav className="flex flex-wrap content-start gap-x-6 gap-y-2 md:justify-end">
-          <Link href="/results" className="hover:text-ink">Results</Link>
-          <Link href="/rules" className="hover:text-ink">Official rules</Link>
-          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+          <Link href="/results/" className="hover:text-ink">Results</Link>
+          <Link href="/rules/" className="hover:text-ink">Official rules</Link>
+          <Link href="/privacy/" className="hover:text-ink">Privacy</Link>
           <a href={`mailto:${SPONSOR_CONTACT}`} className="hover:text-ink">Sponsor a week</a>
         </nav>
       </div>

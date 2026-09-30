@@ -1,32 +1,51 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
-import { getContributions, getDrawView } from "@/lib/data";
-import { getSession } from "@/lib/auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Download, ExternalLink } from "lucide-react";
+import { getContributions, getDraw, getEntryIds, getMyEntryIds } from "@/lib/queries";
+import { useLoad, LoadError } from "@/components/use-load";
+import { useAuth } from "@/components/auth-provider";
 import { drandRoundTime, drandRoundUrl } from "@/lib/drand";
 import { countryName } from "@/lib/countries";
 import { weekLabel } from "@/lib/week";
 import { formatMoney, formatUtc } from "@/lib/utils";
 import type { Draw } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
-
 const SOURCE_LABEL = { sponsor: "Sponsor", ads: "Ad revenue", rollover: "Rollover" } as const;
 const STATUS_LABEL: Record<Draw["status"], string> = {
   open: "Open for entries",
   closed: "Closed, drawing soon",
   drawn: "Drawn",
-  cancelled: "Cancelled",
 };
 
-export default async function DrawPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const view = await getDrawView(id);
-  if (!view) notFound();
+export default function DrawPage() {
+  return (
+    <Suspense fallback={<div className="container max-w-4xl py-14"><div className="card h-64 animate-pulse" /></div>}>
+      <DrawDetail />
+    </Suspense>
+  );
+}
+
+function DrawDetail() {
+  const id = useSearchParams().get("id") ?? "";
+  const { session } = useAuth();
+  const { data, error, loading } = useLoad(async () => {
+    const view = await getDraw(id);
+    if (!view) return null;
+    const [contributions, mine] = await Promise.all([
+      getContributions(view),
+      session ? getMyEntryIds(view.draw.id) : Promise.resolve([]),
+    ]);
+    return { view, contributions, mine };
+  }, `${id}:${session?.user.id ?? ""}`);
+
+  if (error) return <LoadError message={error} />;
+  if (loading) return <div className="container max-w-4xl py-14"><div className="card h-64 animate-pulse" /></div>;
+  if (!data) return <LoadError message="No draw with that id." />;
+
+  const { view, contributions, mine } = data;
   const { draw, pot, winner, entries } = view;
-  const contributions = await getContributions(draw.id, pot);
-  const myEntries = await getMyEntryIds(draw.id);
   const drawn = draw.status === "drawn";
 
   return (
@@ -38,11 +57,18 @@ export default async function DrawPage({ params }: { params: Promise<{ id: strin
         {formatMoney(drawn ? draw.prize_amount ?? 0 : pot.total, draw.currency, true)}
       </h1>
       <p className="mt-3 text-muted">
-        {drawn
-          ? winner
-            ? <>Won by <span className="font-medium text-ink">{winner.name}</span>{winner.country && ` from ${countryName(winner.country)}`}.</>
-            : "No entries this week, so the pot rolled over."
-          : `${entries.toLocaleString("en-US")} entries so far. Closes ${formatUtc(draw.closes_at)}.`}
+        {drawn ? (
+          winner ? (
+            <>
+              Won by <span className="font-medium text-ink">{winner.name}</span>
+              {winner.country && ` from ${countryName(winner.country)}`}.
+            </>
+          ) : (
+            "No entries this week, so the pot rolled over."
+          )
+        ) : (
+          `${entries.toLocaleString("en-US")} entries so far. Closes ${formatUtc(draw.closes_at)}.`
+        )}
       </p>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -60,7 +86,7 @@ export default async function DrawPage({ params }: { params: Promise<{ id: strin
                       <div className="font-medium">{SOURCE_LABEL[c.source]}</div>
                       {c.note && <div className="text-xs text-muted">{c.note}</div>}
                     </td>
-                    <td className="num py-2.5 text-right">{formatMoney(Number(c.amount), draw.currency, true)}</td>
+                    <td className="num py-2.5 text-right">{formatMoney(c.amount, draw.currency, true)}</td>
                   </tr>
                 ))}
                 <tr>
@@ -74,16 +100,14 @@ export default async function DrawPage({ params }: { params: Promise<{ id: strin
 
         <section className="card p-6">
           <h2 className="font-semibold">Fairness proof</h2>
-          <p className="mt-1 text-sm text-muted">
-            Both of these were published when the draw opened, before anyone entered.
-          </p>
+          <p className="mt-1 text-sm text-muted">Both of these were published when the draw opened, before anyone entered.</p>
           <dl className="mt-4 space-y-4 text-sm">
             <Item label="Secret seed hash">
               <code className="break-all font-mono text-xs">{draw.seed_hash}</code>
             </Item>
             <Item label="Public random number">
               <a href={drandRoundUrl(draw.randomness_round)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-2">
-                drand round {draw.randomness_round.toLocaleString("en-US")} <ExternalLink className="h-3.5 w-3.5" />
+                drand round {Number(draw.randomness_round).toLocaleString("en-US")} <ExternalLink className="h-3.5 w-3.5" />
               </a>
               <span className="text-muted"> · released {formatUtc(drandRoundTime(draw.randomness_round))}</span>
             </Item>
@@ -96,9 +120,15 @@ export default async function DrawPage({ params }: { params: Promise<{ id: strin
                   <code className="break-all font-mono text-xs">{draw.randomness}</code>
                 </Item>
                 <Item label="Result">
-                  Entry <span className="num font-medium">#{draw.winner_index}</span> of{" "}
-                  <span className="num">{draw.total_entries?.toLocaleString("en-US")}</span> (counting from 0) ·{" "}
-                  <a href={`/draws/${draw.id}/entries.txt`} className="underline underline-offset-2">entry list</a>
+                  {draw.total_entries ? (
+                    <>
+                      Entry <span className="num font-medium">#{draw.winner_index}</span> of{" "}
+                      <span className="num">{draw.total_entries.toLocaleString("en-US")}</span> (counting from 0)
+                      <EntryListButton drawId={draw.id} weekStart={draw.week_start} />
+                    </>
+                  ) : (
+                    "No entries."
+                  )}
                 </Item>
               </>
             )}
@@ -106,12 +136,12 @@ export default async function DrawPage({ params }: { params: Promise<{ id: strin
         </section>
       </div>
 
-      {myEntries.length > 0 && (
+      {mine.length > 0 && (
         <section className="card mt-6 p-6">
           <h2 className="font-semibold">Your entries in this draw</h2>
-          <p className="mt-1 text-sm text-muted">Check each one appears in the entry list.</p>
+          <p className="mt-1 text-sm text-muted">After the draw, check each one appears in the entry list.</p>
           <ul className="mt-3 flex flex-wrap gap-2">
-            {myEntries.map((e) => (
+            {mine.map((e) => (
               <li key={e} className="rounded-lg bg-bg px-2 py-1 font-mono text-xs">{e}</li>
             ))}
           </ul>
@@ -140,6 +170,36 @@ const index = Number(BigInt("0x" + h.slice(0, 13)) % BigInt(total));`}
   );
 }
 
+function EntryListButton({ drawId, weekStart }: { drawId: string; weekStart: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function download() {
+    setBusy(true);
+    setError(null);
+    try {
+      const ids = await getEntryIds(drawId);
+      if (!ids) throw new Error("Entry list not available.");
+      const url = URL.createObjectURL(new Blob([ids.join("\n") + "\n"], { type: "text/plain" }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: `entries-${weekStart}.txt` });
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      {" · "}
+      <button onClick={download} disabled={busy} className="inline-flex items-center gap-1 underline underline-offset-2">
+        <Download className="h-3.5 w-3.5" /> {busy ? "Preparing…" : "entry list"}
+      </button>
+      {error && <span className="block text-xs text-bad">{error}</span>}
+    </>
+  );
+}
+
 function Item({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -147,16 +207,4 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
       <dd className="mt-1">{children}</dd>
     </div>
   );
-}
-
-async function getMyEntryIds(drawId: string): Promise<string[]> {
-  const session = await getSession().catch(() => null);
-  if (!session) return [];
-  const { data } = await getSupabaseAdminClient()
-    .from("entries")
-    .select("id")
-    .eq("draw_id", drawId)
-    .eq("user_id", session.userId)
-    .order("created_at");
-  return (data ?? []).map((e) => e.id);
 }

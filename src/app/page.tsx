@@ -1,47 +1,43 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, Coins, ShieldCheck } from "lucide-react";
-import { getHomeData, type DrawView } from "@/lib/data";
-import { getEnterState } from "@/lib/enter-state";
+import { getHome } from "@/lib/queries";
+import { useLoad, LoadError } from "@/components/use-load";
+import { useAuth } from "@/components/auth-provider";
 import { EnterButton } from "@/components/enter-button";
 import { Countdown } from "@/components/countdown";
 import { PotBreakdown } from "@/components/pot-breakdown";
 import { AdSlot } from "@/components/ad-slot";
-import { DemoBanner } from "@/components/demo-banner";
 import { AD_SHARE_PERCENT, CLAIM_WINDOW_DAYS, SPONSOR_CONTACT } from "@/lib/config";
 import { countryName } from "@/lib/countries";
 import { weekLabel } from "@/lib/week";
 import { formatMoney, formatUtc } from "@/lib/utils";
+import type { DrawView } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
-  const { demo, current, last } = await getHomeData();
-  const enterState = await getEnterState(current?.draw ?? null, demo);
+export default function HomePage() {
+  const { me } = useAuth();
+  // Reload the pot/entry count after the signed-in user's entry count changes.
+  const { data, error } = useLoad(getHome, me?.entries);
+  if (error) return <LoadError message={error} />;
+  const current = data?.current ?? null;
+  const last = data?.last ?? null;
 
   return (
     <>
-      {demo && <DemoBanner />}
-
       <section className="container grid gap-10 pb-16 pt-10 md:pt-16 lg:grid-cols-[1.35fr_1fr] lg:items-center lg:gap-14">
         <div className="min-w-0">
-          {current ? (
+          <p className="eyebrow">{current ? weekLabel(current.draw.week_start) + " · " : ""}This week&apos;s pot</p>
+          <h1 className="num mt-3 break-words text-[clamp(4.25rem,17vw,9.5rem)] font-semibold leading-[0.85] tracking-tightest">
+            {current ? formatMoney(current.pot.total, current.draw.currency) : <span className="text-line">$—</span>}
+          </h1>
+          <p className="mt-5 max-w-md text-lg text-muted">One free draw. One winner takes the whole pot every Monday.</p>
+          {current && (
             <>
-              <p className="eyebrow">{weekLabel(current.draw.week_start)} · This week&apos;s pot</p>
-              <h1 className="num mt-3 break-words text-[clamp(4.25rem,17vw,9.5rem)] font-semibold leading-[0.85] tracking-tightest">
-                {formatMoney(current.pot.total, current.draw.currency)}
-              </h1>
-              <p className="mt-5 max-w-md text-lg text-muted">
-                One free draw. One winner takes the whole pot every Monday.
-              </p>
               <div className="mt-8 max-w-xl">
                 <PotBreakdown pot={current.pot} currency={current.draw.currency} />
               </div>
               {current.sponsor && <SponsorLine view={current} />}
-            </>
-          ) : (
-            <>
-              <p className="eyebrow">This week&apos;s pot</p>
-              <h1 className="mt-3 text-5xl font-semibold tracking-tight">The next draw is being set up.</h1>
             </>
           )}
         </div>
@@ -51,9 +47,11 @@ export default async function HomePage() {
             <p className="text-sm font-semibold uppercase tracking-[0.14em]">Draw closes in</p>
             {current && <p className="num text-sm opacity-70">{current.entries.toLocaleString("en-US")} entries</p>}
           </div>
-          <div className="mt-4">{current && <Countdown to={current.draw.closes_at} />}</div>
+          <div className="mt-4">
+            {current ? <Countdown to={current.draw.closes_at} /> : <div className="h-[68px] rounded-xl bg-accent-ink/[0.07]" />}
+          </div>
           <div className="my-6 border-t-2 border-dashed border-accent-ink/25" />
-          <EnterButton initial={enterState} />
+          <EnterButton />
           {current && (
             <p className="mt-4 text-center text-xs opacity-60">
               Closes {formatUtc(current.draw.closes_at)} · winner drawn right after
@@ -62,19 +60,19 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="how" className="border-y border-line/70 bg-surface/60">
+      <section className="border-y border-line/70 bg-surface/60">
         <div className="container grid gap-8 py-14 md:grid-cols-3">
           <Step icon={CalendarCheck} title="Enter free, every day">
-            Sign in with your email and tap enter. One entry a day, up to seven a week. You never pay,
-            and you never have to watch or click an ad.
+            Sign in with your email and tap enter. One entry a day, up to seven a week. You never pay, and you never
+            have to watch or click an ad.
           </Step>
           <Step icon={Coins} title="Sponsors and ads fill the pot">
-            Each week&apos;s sponsor puts in the base prize, and {AD_SHARE_PERCENT}% of this site&apos;s ad
-            revenue is added on top. Every dollar is listed in a public ledger.
+            Each week&apos;s sponsor puts in the base prize, and {AD_SHARE_PERCENT}% of this site&apos;s ad revenue is
+            added on top. Every dollar is listed in a public ledger.
           </Step>
           <Step icon={ShieldCheck} title="One winner, provably fair">
-            Before entries close we publish a locked-in secret and pick a future public random number.
-            Anyone can re-run the draw and check the winner.
+            Before entries close we publish a locked-in secret and pick a future public random number. Anyone can
+            re-run the draw and check the winner.
           </Step>
         </div>
       </section>
@@ -86,21 +84,21 @@ export default async function HomePage() {
             <h2 className="text-2xl font-semibold tracking-tight">Where the money comes from</h2>
             <div className="mt-4 space-y-3 text-muted">
               <p>
-                <span className="font-medium text-ink">Sponsors</span>{" "}pay to put their name on a week,
-                and their money goes straight into that week&apos;s pot.
+                <span className="font-medium text-ink">Sponsors</span> pay to put their name on a week, and their
+                money goes straight into that week&apos;s pot.
               </p>
               <p>
-                <span className="font-medium text-ink">Ads</span>{" "}on this site earn revenue, and{" "}
-                {AD_SHARE_PERCENT}% of it goes into the pot. The rest keeps the lights on.
+                <span className="font-medium text-ink">Ads</span> on this site earn revenue, and {AD_SHARE_PERCENT}% of
+                it goes into the pot. The rest keeps the lights on.
               </p>
               <p>
-                <span className="font-medium text-ink">Unclaimed prizes</span>{" "}roll over. A winner has{" "}
+                <span className="font-medium text-ink">Unclaimed prizes</span> roll over. A winner has{" "}
                 {CLAIM_WINDOW_DAYS} days to claim; after that, the money goes into the next pot.
               </p>
             </div>
             {current && (
               <Link
-                href={`/draws/${current.draw.id}`}
+                href={`/draw/?id=${current.draw.id}`}
                 className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
               >
                 See this week&apos;s ledger <ArrowRight className="h-4 w-4" />
@@ -145,15 +143,7 @@ function SponsorLine({ view }: { view: DrawView }) {
   );
 }
 
-function Step({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Coins;
-  title: string;
-  children: React.ReactNode;
-}) {
+function Step({ icon: Icon, title, children }: { icon: typeof Coins; title: string; children: React.ReactNode }) {
   return (
     <div>
       <Icon className="h-6 w-6" strokeWidth={1.75} />
@@ -179,7 +169,7 @@ function LastResult({ view }: { view: DrawView }) {
       )}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
         <span className="num">{(draw.total_entries ?? 0).toLocaleString("en-US")} entries</span>
-        <Link href={`/draws/${draw.id}`} className="inline-flex items-center gap-1 font-medium text-ink underline-offset-4 hover:underline">
+        <Link href={`/draw/?id=${draw.id}`} className="inline-flex items-center gap-1 font-medium text-ink underline-offset-4 hover:underline">
           Verify this draw <ArrowRight className="h-4 w-4" />
         </Link>
       </div>

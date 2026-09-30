@@ -1,22 +1,14 @@
+/**
+ * Static export for GitHub Pages. Set NEXT_PUBLIC_BASE_PATH to "/<repo>"
+ * when the site is served from https://<user>.github.io/<repo>/.
+ */
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "export",
+  trailingSlash: true,
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  images: { unoptimized: true },
   reactStrictMode: true,
-  poweredByHeader: false,
-  // Only set for the static GitHub Pages preview (served from /<repo>/).
-  basePath: process.env.PAGES_BASE_PATH || undefined,
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-        ],
-      },
-    ];
-  },
 };
 
 export default nextConfig;
